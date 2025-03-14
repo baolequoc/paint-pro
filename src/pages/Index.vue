@@ -1,22 +1,11 @@
 <template>
-  <div class="page">
-    <img :src="logo" alt="" />
+  ahiihh
+  <div class="page bg-red-500 text-white p-4">
+    <CanvasEditor />
+    <div>ahihi</div>
   </div>
 </template>
 
-<script lang="ts">
-  import logo from "@/assets/logos.svg";
-
-  export default {
-    setup() {
-      return { logo };
-    }
-  };
+<script setup lang="ts">
+  import CanvasEditor from "@/components/CanvasEditor.vue";
 </script>
-
-<style lang="scss" scoped>
-  img {
-    margin: auto 0 auto 0;
-    width: 600px;
-  }
-</style>
