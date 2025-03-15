@@ -56,12 +56,12 @@
 </template>
 
 <script setup>
-  import { ref, onMounted, onBeforeUnmount, nextTick } from "vue";
+  import { ref, onMounted, onBeforeUnmount, nextTick, useTemplateRef } from "vue";
   import { Canvas as FabricJSCanvas, Rect, IText, PencilBrush, FabricImage } from "fabric";
   import IconButton from "./IconButton.vue";
 
-  const canvasEl = ref(null);
-  const fileInput = ref(null);
+  const canvasEl = useTemplateRef("canvasEl");
+  const fileInput = useTemplateRef("fileInput");
   const activeTool = ref("select");
 
   let canvas = null;
@@ -393,7 +393,7 @@
     flex: 1;
     width: 100%;
     position: relative;
-    background-color: #ffffff;
+    background-color: #f0f4f8;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
   }
 
