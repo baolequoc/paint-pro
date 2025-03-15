@@ -1,52 +1,21 @@
 <template>
   <div class="editor-container">
-    <div class="toolbar">
-      <div class="tool-group">
-        <IconButton
-          icon-class="fas fa-mouse-pointer"
-          :active="activeTool === 'select'"
-          tooltip="Select Tool"
-          :on-click="() => setTool('select')"
-        />
-        <IconButton
-          icon-class="fas fa-paint-brush"
-          :active="activeTool === 'brush'"
-          tooltip="Brush Tool"
-          :on-click="() => setTool('brush')"
-        />
-        <input v-if="activeTool === 'brush'" v-model="brushColor" type="color" @input="updateBrushColor" />
-        <IconButton
-          icon-class="fas fa-square"
-          :active="activeTool === 'rectangle'"
-          tooltip="Rectangle Tool"
-          :on-click="() => setTool('rectangle')"
-        />
-        <IconButton
-          icon-class="fas fa-font"
-          :active="activeTool === 'text'"
-          tooltip="Text Tool"
-          :on-click="() => setTool('text')"
-        />
-        <div v-if="activeTool === 'rectangle' || activeTool === 'text'" class="shape-options">
-          <label for="shapeColor">Color:</label>
-          <input v-model="shapeColor" type="color" @input="updateShapeColor" />
-          <label for="strokeWidth">Stroke Width:</label>
-          <input v-model.number="strokeWidth" type="number" min="1" @input="updateStrokeWidth" />
-        </div>
-      </div>
-
-      <div class="tool-group">
-        <IconButton icon-class="fas fa-exchange-alt" tooltip="Replace Image" :on-click="triggerImageUpload" />
-        <IconButton icon-class="fas fa-file-image" tooltip="Add File" :on-click="triggerNewImageUpload" />
-        <IconButton icon-class="fas fa-crop-alt" tooltip="Crop" :on-click="startCrop" />
-        <IconButton v-if="isCropping" icon-class="fas fa-check" tooltip="Undo" :on-click="applyCrop" />
-      </div>
-
-      <div class="tool-group actions">
-        <button class="btn-export" @click="exportCanvas"><i class="fas fa-download"></i></button>
-        <button class="btn-clear" @click="clearCanvas"><i class="fas fa-trash-alt"></i></button>
-      </div>
-    </div>
+    <Toolbox
+      :active-tool="activeTool"
+      :brush-color="brushColor"
+      :shape-color="shapeColor"
+      :stroke-width="strokeWidth"
+      :is-cropping="isCropping"
+      @set-tool="setTool"
+      @update:brush-color="updateBrushColor"
+      @update:shape-color="updateShapeColor"
+      @trigger-image-upload="triggerImageUpload"
+      @trigger-new-image-upload="triggerNewImageUpload"
+      @start-crop="startCrop"
+      @apply-crop="applyCrop"
+      @export="exportCanvas"
+      @clear="clearCanvas"
+    />
 
     <div ref="canvasContainer" class="canvas-container">
       <canvas ref="canvasEl" tabindex="0" />
@@ -60,8 +29,8 @@
 <script setup lang="ts">
   import { ref, onMounted, onBeforeUnmount, nextTick, useTemplateRef } from "vue";
   import { Canvas as FabricJSCanvas, Rect, IText, PencilBrush, FabricImage } from "fabric";
-  import IconButton from "./IconButton.vue";
   import ResizeFrame from "./ResizeFrame.vue";
+  import Toolbox from "./Toolbox.vue";
 
   const canvasEl = useTemplateRef("canvasEl");
   const fileInput = useTemplateRef("fileInput");
@@ -69,20 +38,21 @@
   const activeTool = ref("select");
   let canvas: FabricJSCanvas | null = null;
 
-  const selectedImage = null;
+  let selectedImage = null;
   const isCropping = ref(false);
   const cropRect = null;
 
   const brushColor = ref("#000000");
 
-  function updateBrushColor() {
+  function updateBrushColor(color: string) {
     if (!canvas) return;
     if (activeTool.value === "brush") {
       if (!canvas.freeDrawingBrush) {
         canvas.freeDrawingBrush = new PencilBrush(canvas);
       }
-      canvas.freeDrawingBrush.color = brushColor.value;
+      canvas.freeDrawingBrush.color = color;
     }
+    brushColor.value = color;
   }
 
   function resizeCanvas(value: { width: number; height: number }) {
@@ -121,18 +91,11 @@
   const shapeColor = ref("#000000");
   const strokeWidth = ref(2);
 
-  function updateShapeColor() {
+  function updateShapeColor(color: string) {
     const activeObj = canvas.getActiveObject();
     if (activeObj) {
+      shapeColor.value = color;
       activeObj.set("fill", shapeColor.value);
-      canvas.renderAll();
-    }
-  }
-
-  function updateStrokeWidth() {
-    const activeObj = canvas.getActiveObject();
-    if (activeObj) {
-      activeObj.set("strokeWidth", strokeWidth.value);
       canvas.renderAll();
     }
   }
@@ -271,7 +234,8 @@
 
   function clearCanvas() {
     canvas.clear();
-    canvas.setBackgroundColor("#ffffff", () => canvas.renderAll());
+    canvas.backgroundColor = "#ffffff";
+    canvas.requestRenderAll();
   }
 
   // 📸 Start cropping
@@ -353,45 +317,6 @@
     flex-direction: column;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
     background-color: #f0f4f8; /* Softer background */
-  }
-
-  .toolbar {
-    padding: 16px;
-    background: #ffffff;
-    border-bottom: 1px solid #e2e8f0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    z-index: 10;
-  }
-
-  .tool-group {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-
-  .toolbar button {
-    padding: 10px 14px;
-    cursor: pointer;
-    border: none;
-    border-radius: 8px; /* Rounded corners */
-    background-color: #ffffff;
-    color: #555;
-    font-size: 14px;
-    transition: background-color 0.3s, transform 0.2s;
-  }
-
-  .toolbar button:hover {
-    background-color: #e7f1ff; /* Light hover effect */
-    transform: scale(1.05);
-  }
-
-  .toolbar button.active {
-    background-color: #bee3f8; /* Active button color */
-    color: #3182ce;
   }
 
   .canvas-container {
