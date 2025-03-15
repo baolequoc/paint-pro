@@ -66,7 +66,6 @@
 <script setup lang="ts">
   import { ref, onMounted, onBeforeUnmount, nextTick, useTemplateRef } from "vue";
   import { Canvas as FabricJSCanvas, Rect, IText, PencilBrush, FabricImage } from "fabric";
-  import { useElementSize } from "@vueuse/core";
   import IconButton from "./IconButton.vue";
 
   const canvasEl = useTemplateRef("canvasEl");
@@ -76,59 +75,49 @@
   let canvas: FabricJSCanvas | null = null;
 
   let isResizing = false;
-  let currentDirection = null;
+  const currentDirection = ref<"top" | "right" | "bottom" | "left" | null>(null);
 
-  const { canvasContainerWidth: width, canvasContainerHeight: height } = useElementSize(canvasContainer);
-
-  function startResize(direction) {
-    isResizing = true;
-    currentDirection = direction;
-    document.addEventListener("mousemove", handleResize);
-    document.addEventListener("mouseup", stopResize);
-  }
-
-  function stopResize() {
-    isResizing = false;
-    currentDirection = null;
-    document.removeEventListener("mousemove", handleResize);
-    document.removeEventListener("mouseup", stopResize);
-  }
-
-  function handleResize(e) {
+  function handleResize(e: MouseEvent) {
     if (!isResizing || !canvasEl.value) return;
 
     const container = canvasEl.value.parentElement;
+    if (!container) return;
+
     const rect = container.getBoundingClientRect();
 
     let newWidth = rect.width;
     let newHeight = rect.height;
 
-    if (currentDirection === "right") {
+    if (currentDirection.value === "right") {
       newWidth = e.clientX - rect.left;
-    } else if (currentDirection === "left") {
+    } else if (currentDirection.value === "left") {
       newWidth = rect.right - e.clientX;
       container.style.left = `${e.clientX}px`;
-    } else if (currentDirection === "bottom") {
+    } else if (currentDirection.value === "bottom") {
       newHeight = e.clientY - rect.top;
-    } else if (currentDirection === "top") {
+    } else if (currentDirection.value === "top") {
       newHeight = rect.bottom - e.clientY;
       container.style.top = `${e.clientY}px`;
     }
 
     // Apply the new size
-    canvas.setDimensions({
+    (canvas as FabricJSCanvas).setDimensions({
       width: Math.max(newWidth, 100),
       height: Math.max(newHeight, 100)
     });
   }
 
-  // useResizeObserver(canvasEl, (entries) => {
-  //   const entry = entries[0];
-  //   const { width, height } = entry.contentRect;
-  //   if (!canvas) return;
-  //   (canvas as FabricJSCanvas).width = width;
-  //   (canvas as FabricJSCanvas).height = height;
-  // });
+  function stopResize() {
+    isResizing = false;
+    currentDirection.value = null;
+  }
+
+  function startResize(direction: "top" | "right" | "bottom" | "left") {
+    isResizing = true;
+    currentDirection.value = direction;
+    document.addEventListener("mousemove", handleResize);
+    document.addEventListener("mouseup", stopResize);
+  }
 
   let selectedImage = null;
   const isCropping = ref(false);
