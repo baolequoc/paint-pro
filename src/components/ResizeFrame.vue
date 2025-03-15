@@ -1,6 +1,6 @@
 <template>
   <!-- Resize handles -->
-  <div class="resize-handle top" @mousedown="startResize('top')"></div>
+  <div class="resize-handle top"></div>
   <div class="resize-handle right" @mousedown="startResize('right')"></div>
   <div class="resize-handle bottom" @mousedown="startResize('bottom')"></div>
   <div class="resize-handle left" @mousedown="startResize('left')"></div>
