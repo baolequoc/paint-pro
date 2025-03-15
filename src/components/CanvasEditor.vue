@@ -2,30 +2,49 @@
   <div class="editor-container">
     <div class="toolbar">
       <div class="tool-group">
-        <button :class="{ active: activeTool === 'select' }" @click="setTool('select')">
-          <i class="fas fa-mouse-pointer"></i> Select
-        </button>
-        <button :class="{ active: activeTool === 'brush' }" @click="setTool('brush')">
-          <i class="fas fa-paint-brush"></i> Brush
-        </button>
-        <button :class="{ active: activeTool === 'rectangle' }" @click="setTool('rectangle')">
-          <i class="fas fa-square"></i> Rectangle
-        </button>
-        <button :class="{ active: activeTool === 'text' }" @click="setTool('text')">
-          <i class="fas fa-font"></i> Text
-        </button>
+        <IconButton
+          icon-class="fas fa-mouse-pointer"
+          :active="activeTool === 'select'"
+          tooltip="Select Tool"
+          :on-click="() => setTool('select')"
+        />
+        <IconButton
+          icon-class="fas fa-paint-brush"
+          :active="activeTool === 'brush'"
+          tooltip="Brush Tool"
+          :on-click="() => setTool('brush')"
+        />
+        <input v-if="activeTool === 'brush'" v-model="brushColor" type="color" @input="updateBrushColor" />
+        <IconButton
+          icon-class="fas fa-square"
+          :active="activeTool === 'rectangle'"
+          tooltip="Rectangle Tool"
+          :on-click="() => setTool('rectangle')"
+        />
+        <IconButton
+          icon-class="fas fa-font"
+          :active="activeTool === 'text'"
+          tooltip="Text Tool"
+          :on-click="() => setTool('text')"
+        />
+        <div v-if="activeTool === 'rectangle' || activeTool === 'text'" class="shape-options">
+          <label for="shapeColor">Color:</label>
+          <input v-model="shapeColor" type="color" @input="updateShapeColor" />
+          <label for="strokeWidth">Stroke Width:</label>
+          <input v-model.number="strokeWidth" type="number" min="1" @input="updateStrokeWidth" />
+        </div>
       </div>
 
       <div class="tool-group">
-        <button @click="triggerImageUpload"><i class="fas fa-exchange-alt"></i> Replace Image</button>
-        <button @click="triggerNewImageUpload"><i class="fas fa-file-image"></i> Add File</button>
-        <button @click="startCrop"><i class="fas fa-crop-alt"></i> Crop</button>
-        <button v-if="isCropping" class="btn-apply" @click="applyCrop"><i class="fas fa-check"></i> Apply Crop</button>
+        <IconButton icon-class="fas fa-exchange-alt" tooltip="Replace Image" :on-click="triggerImageUpload" />
+        <IconButton icon-class="fas fa-file-image" tooltip="Add File" :on-click="triggerNewImageUpload" />
+        <IconButton icon-class="fas fa-crop-alt" tooltip="Crop" :on-click="startCrop" />
+        <IconButton v-if="isCropping" icon-class="fas fa-check" tooltip="Undo" :on-click="applyCrop" />
       </div>
 
       <div class="tool-group actions">
-        <button class="btn-export" @click="exportCanvas"><i class="fas fa-download"></i> Export PNG</button>
-        <button class="btn-clear" @click="clearCanvas"><i class="fas fa-trash-alt"></i> Clear Canvas</button>
+        <button class="btn-export" @click="exportCanvas"><i class="fas fa-download"></i></button>
+        <button class="btn-clear" @click="clearCanvas"><i class="fas fa-trash-alt"></i></button>
       </div>
     </div>
 
@@ -39,6 +58,7 @@
 <script setup>
   import { ref, onMounted, onBeforeUnmount, nextTick } from "vue";
   import { Canvas as FabricJSCanvas, Rect, IText, PencilBrush, FabricImage } from "fabric";
+  import IconButton from "./IconButton.vue";
 
   const canvasEl = ref(null);
   const fileInput = ref(null);
@@ -56,6 +76,13 @@
       height: container.clientHeight
     });
   };
+  const brushColor = ref("#000000");
+
+  function updateBrushColor() {
+    if (activeTool.value === "brush") {
+      canvas.freeDrawingBrush.color = brushColor.value;
+    }
+  }
 
   async function handlePaste(e) {
     const items = e.clipboardData?.items;
@@ -81,6 +108,25 @@
       } catch (err) {
         console.error("❌ Failed to handle pasted image:", err);
       }
+    }
+  }
+
+  const shapeColor = ref("#000000");
+  const strokeWidth = ref(2);
+
+  function updateShapeColor() {
+    const activeObj = canvas.getActiveObject();
+    if (activeObj) {
+      activeObj.set("fill", shapeColor.value);
+      canvas.renderAll();
+    }
+  }
+
+  function updateStrokeWidth() {
+    const activeObj = canvas.getActiveObject();
+    if (activeObj) {
+      activeObj.set("strokeWidth", strokeWidth.value);
+      canvas.renderAll();
     }
   }
 
@@ -293,7 +339,6 @@
 </script>
 
 <style scoped>
-  /* Import Font Awesome CSS for icons */
   @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css");
 
   .editor-container {
@@ -302,103 +347,46 @@
     display: flex;
     flex-direction: column;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    background-color: #f8f9fa;
+    background-color: #f0f4f8; /* Softer background */
   }
 
   .toolbar {
-    padding: 12px 16px;
+    padding: 16px;
     background: #ffffff;
     border-bottom: 1px solid #e2e8f0;
     display: flex;
     flex-wrap: wrap;
     gap: 16px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     z-index: 10;
   }
 
   .tool-group {
     display: flex;
-    gap: 8px;
+    gap: 12px;
     flex-wrap: wrap;
     align-items: center;
-    padding-right: 16px;
-    position: relative;
-  }
-
-  .tool-group:not(:last-child)::after {
-    content: "";
-    position: absolute;
-    right: 0;
-    top: 10%;
-    height: 80%;
-    width: 1px;
-    background-color: #e2e8f0;
   }
 
   .toolbar button {
-    margin: 0;
-    padding: 8px 12px;
+    padding: 10px 14px;
     cursor: pointer;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
+    border: none;
+    border-radius: 8px; /* Rounded corners */
     background-color: #ffffff;
-    color: #4a5568;
+    color: #555;
     font-size: 14px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.2s ease;
+    transition: background-color 0.3s, transform 0.2s;
   }
 
-  .toolbar button:hover:not(:disabled) {
-    background-color: #f7fafc;
-    border-color: #cbd5e0;
+  .toolbar button:hover {
+    background-color: #e7f1ff; /* Light hover effect */
+    transform: scale(1.05);
   }
 
   .toolbar button.active {
-    background-color: #ebf8ff;
+    background-color: #bee3f8; /* Active button color */
     color: #3182ce;
-    border-color: #bee3f8;
-  }
-
-  .toolbar button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .toolbar button i {
-    font-size: 14px;
-  }
-
-  .btn-export {
-    background-color: #4299e1 !important;
-    color: white !important;
-    border-color: #3182ce !important;
-  }
-
-  .btn-export:hover {
-    background-color: #3182ce !important;
-  }
-
-  .btn-clear {
-    background-color: #fff5f5 !important;
-    color: #e53e3e !important;
-    border-color: #fed7d7 !important;
-  }
-
-  .btn-clear:hover {
-    background-color: #fed7d7 !important;
-  }
-
-  .btn-apply {
-    background-color: #48bb78 !important;
-    color: white !important;
-    border-color: #38a169 !important;
-  }
-
-  .btn-apply:hover {
-    background-color: #38a169 !important;
   }
 
   .canvas-container {
@@ -419,40 +407,14 @@
   /* Responsive adjustments */
   @media (max-width: 768px) {
     .toolbar {
-      padding: 8px;
+      padding: 12px;
       gap: 8px;
+      flex-direction: column;
     }
 
     .tool-group {
       width: 100%;
-      padding-right: 0;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #e2e8f0;
-      justify-content: center;
-    }
-
-    .tool-group:not(:last-child)::after {
-      display: none;
-    }
-
-    .toolbar button {
-      padding: 6px 10px;
-      font-size: 13px;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .toolbar button span {
-      display: none;
-    }
-
-    .toolbar button {
-      padding: 8px;
-    }
-
-    .toolbar button i {
-      font-size: 16px;
-      margin: 0;
+      justify-content: space-between;
     }
   }
 </style>
