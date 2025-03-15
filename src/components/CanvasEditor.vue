@@ -1,16 +1,32 @@
 <template>
   <div class="editor-container">
     <div class="toolbar">
-      <button :class="{ active: activeTool === 'select' }" @click="setTool('select')">Select</button>
-      <button :class="{ active: activeTool === 'brush' }" @click="setTool('brush')">Brush</button>
-      <button :class="{ active: activeTool === 'rectangle' }" @click="setTool('rectangle')">Rectangle</button>
-      <button :class="{ active: activeTool === 'text' }" @click="setTool('text')">Text</button>
-      <button @click="triggerImageUpload">Replace Image</button>
-      <button @click="triggerNewImageUpload">Add File</button>
-      <button @click="startCrop">Crop</button>
-      <button v-if="isCropping" @click="applyCrop">Apply Crop</button>
-      <button @click="exportCanvas">Export PNG</button>
-      <button @click="clearCanvas">Clear Canvas</button>
+      <div class="tool-group">
+        <button :class="{ active: activeTool === 'select' }" @click="setTool('select')">
+          <i class="fas fa-mouse-pointer"></i> Select
+        </button>
+        <button :class="{ active: activeTool === 'brush' }" @click="setTool('brush')">
+          <i class="fas fa-paint-brush"></i> Brush
+        </button>
+        <button :class="{ active: activeTool === 'rectangle' }" @click="setTool('rectangle')">
+          <i class="fas fa-square"></i> Rectangle
+        </button>
+        <button :class="{ active: activeTool === 'text' }" @click="setTool('text')">
+          <i class="fas fa-font"></i> Text
+        </button>
+      </div>
+
+      <div class="tool-group">
+        <button @click="triggerImageUpload"><i class="fas fa-exchange-alt"></i> Replace Image</button>
+        <button @click="triggerNewImageUpload"><i class="fas fa-file-image"></i> Add File</button>
+        <button @click="startCrop"><i class="fas fa-crop-alt"></i> Crop</button>
+        <button v-if="isCropping" class="btn-apply" @click="applyCrop"><i class="fas fa-check"></i> Apply Crop</button>
+      </div>
+
+      <div class="tool-group actions">
+        <button class="btn-export" @click="exportCanvas"><i class="fas fa-download"></i> Export PNG</button>
+        <button class="btn-clear" @click="clearCanvas"><i class="fas fa-trash-alt"></i> Clear Canvas</button>
+      </div>
     </div>
 
     <div class="canvas-container">
@@ -89,7 +105,7 @@
     canvas = new FabricJSCanvas(canvasEl.value, {
       width: 800,
       height: 600,
-      backgroundColor: "#f0f0f0",
+      backgroundColor: "#ffffff",
       isDrawingMode: false
     });
 
@@ -204,7 +220,7 @@
 
   function clearCanvas() {
     canvas.clear();
-    canvas.setBackgroundColor("#f0f0f0", () => canvas.renderAll());
+    canvas.setBackgroundColor("#ffffff", () => canvas.renderAll());
   }
 
   // 📸 Start cropping
@@ -223,8 +239,8 @@
       top: active.top + 20,
       width: 100,
       height: 100,
-      fill: "rgba(255, 0, 0, 0.2)",
-      stroke: "red",
+      fill: "rgba(0, 123, 255, 0.2)",
+      stroke: "#0056b3",
       strokeWidth: 2,
       hasRotatingPoint: false,
       cornerStyle: "circle",
@@ -277,50 +293,120 @@
 </script>
 
 <style scoped>
+  /* Import Font Awesome CSS for icons */
+  @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css");
+
   .editor-container {
     width: 100%;
     height: 100vh;
     display: flex;
     flex-direction: column;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background-color: #f8f9fa;
   }
 
   .toolbar {
-    padding: 10px;
-    background: #f5f5f5;
-    border-bottom: 1px solid #ddd;
+    padding: 12px 16px;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    z-index: 10;
+  }
+
+  .tool-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding-right: 16px;
+    position: relative;
+  }
+
+  .tool-group:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 10%;
+    height: 80%;
+    width: 1px;
+    background-color: #e2e8f0;
   }
 
   .toolbar button {
     margin: 0;
-    padding: 5px 10px;
+    padding: 8px 12px;
     cursor: pointer;
-    border: none;
-    border-radius: 4px;
-    background-color: #e0e0e0;
-    transition: background-color 0.3s;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background-color: #ffffff;
+    color: #4a5568;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
   }
 
   .toolbar button:hover:not(:disabled) {
-    background-color: #d5d5d5;
+    background-color: #f7fafc;
+    border-color: #cbd5e0;
   }
 
   .toolbar button.active {
-    background-color: #007bff;
-    color: #fff;
+    background-color: #ebf8ff;
+    color: #3182ce;
+    border-color: #bee3f8;
   }
 
   .toolbar button:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  .toolbar button i {
+    font-size: 14px;
+  }
+
+  .btn-export {
+    background-color: #4299e1 !important;
+    color: white !important;
+    border-color: #3182ce !important;
+  }
+
+  .btn-export:hover {
+    background-color: #3182ce !important;
+  }
+
+  .btn-clear {
+    background-color: #fff5f5 !important;
+    color: #e53e3e !important;
+    border-color: #fed7d7 !important;
+  }
+
+  .btn-clear:hover {
+    background-color: #fed7d7 !important;
+  }
+
+  .btn-apply {
+    background-color: #48bb78 !important;
+    color: white !important;
+    border-color: #38a169 !important;
+  }
+
+  .btn-apply:hover {
+    background-color: #38a169 !important;
   }
 
   .canvas-container {
     flex: 1;
     width: 100%;
     position: relative;
+    background-color: #ffffff;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
   }
 
   canvas {
@@ -328,5 +414,45 @@
     width: 100%;
     height: 100%;
     outline: none;
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .toolbar {
+      padding: 8px;
+      gap: 8px;
+    }
+
+    .tool-group {
+      width: 100%;
+      padding-right: 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e2e8f0;
+      justify-content: center;
+    }
+
+    .tool-group:not(:last-child)::after {
+      display: none;
+    }
+
+    .toolbar button {
+      padding: 6px 10px;
+      font-size: 13px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .toolbar button span {
+      display: none;
+    }
+
+    .toolbar button {
+      padding: 8px;
+    }
+
+    .toolbar button i {
+      font-size: 16px;
+      margin: 0;
+    }
   }
 </style>
