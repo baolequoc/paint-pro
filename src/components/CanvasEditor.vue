@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, onBeforeUnmount, nextTick, useTemplateRef } from "vue";
+  import { ref, onMounted, nextTick, useTemplateRef } from "vue";
   import {
     Canvas as FabricJSCanvas,
     Rect,
@@ -39,8 +39,10 @@
     ObjectEvents,
     SerializedObjectProps
   } from "fabric";
+  import { useEventListener } from "@vueuse/core";
   import ResizeFrame from "./ResizeFrame.vue";
   import Toolbox from "./Toolbox.vue";
+  import useFile from "../composables/useFile";
 
   const canvasEl = useTemplateRef("canvasEl");
   const fileInput = useTemplateRef("fileInput");
@@ -53,6 +55,7 @@
   let cropRect: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents> | null = null;
 
   const brushColor = ref("#000000");
+  const { getDataFromFile } = useFile();
 
   function updateBrushColor(color: string) {
     if (!canvas) return;
@@ -79,31 +82,32 @@
     });
   }
 
-  async function handlePaste(e) {
+  function addObjectAndSetActive(obj: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents>) {
+    canvas.add(obj);
+    canvas.setActiveObject(obj);
+    canvas.requestRenderAll();
+  }
+
+  async function handlePaste(e: ClipboardEvent) {
     const items = e.clipboardData?.items;
     if (!items) return;
 
-    for (const item of items) {
-      if (!item.type.startsWith("image")) continue;
+    const imagePromises = Array.from(items)
+      .filter((item) => item.type.startsWith("image"))
+      .map((item) => getDataFromFile(item.getAsFile()));
 
-      const file = item.getAsFile();
-      if (!file) continue;
+    const imageDataUrls = await Promise.all(imagePromises);
 
-      try {
-        const dataURL = await readFileAsDataURL(file);
-        const img = await FabricImage.fromURL(dataURL, { crossOrigin: "anonymous" });
-
-        const scale = Math.min(canvas.width / img.width, canvas.height / img.height, 1);
+    imageDataUrls
+      .filter((data) => data !== null)
+      .forEach(async ({ dataURL }) => {
+        const img = await FabricImage.fromURL(dataURL as string, { crossOrigin: "anonymous" });
+        const scale = Math.min(canvas.width / img.width!, canvas.height / img.height!, 1);
         img.scale(scale);
-        img.left = 50;
-        img.top = 50;
-
-        canvas.add(img);
-        canvas.setActiveObject(img);
-      } catch (err) {
-        console.error("❌ Failed to handle pasted image:", err);
-      }
-    }
+        img.set({ left: 50, top: 50 });
+        // Add image to canvas
+        addObjectAndSetActive(img);
+      });
   }
 
   const shapeColor = ref("#000000");
@@ -118,7 +122,15 @@
     }
   }
 
-  function handleKeyDown(e) {
+  function handleKeyDown(e: KeyboardEvent): void {
+    const activeObj = canvas.getActiveObject();
+
+    // If the active object is text and it's currently being edited,
+    // let the default text editing behavior happen.
+    if (activeObj && activeObj.type === "i-text" && (activeObj as IText).isEditing) {
+      return;
+    }
+
     if (["Delete", "Backspace"].includes(e.key)) {
       removeCanvasObjects(canvas.getActiveObjects());
       canvas.discardActiveObject();
@@ -126,16 +138,20 @@
     }
   }
 
-  function readFileAsDataURL(file) {
+  function readFileAsDataURL(file: File) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
+      reader.onload = (e) => resolve(e.target?.result);
       reader.onerror = (err) => reject(err);
       reader.readAsDataURL(file);
     });
   }
 
+  useEventListener("paste", handlePaste);
+  useEventListener("keydown", handleKeyDown);
+
   onMounted(async () => {
+    await nextTick();
     canvas = new FabricJSCanvas(canvasEl.value, {
       width: 800,
       height: 600,
@@ -143,17 +159,8 @@
       isDrawingMode: false
     });
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("paste", handlePaste);
-
-    await nextTick();
     canvasEl.value.focus();
     canvas.renderAll();
-  });
-
-  onBeforeUnmount(() => {
-    window.removeEventListener("keydown", handleKeyDown);
-    window.removeEventListener("paste", handlePaste);
   });
 
   const tools = {
@@ -177,8 +184,7 @@
         stroke: "black",
         strokeWidth: 2
       });
-      canvas.add(rect);
-      canvas.setActiveObject(rect);
+      addObjectAndSetActive(rect);
     },
     text: () => {
       canvas.isDrawingMode = false;
@@ -187,8 +193,7 @@
         top: 100,
         fontSize: 20
       });
-      canvas.add(text);
-      canvas.setActiveObject(text);
+      addObjectAndSetActive(text);
     }
   };
 
@@ -235,15 +240,13 @@
       removeCanvasObjects([selectedImage]);
     }
 
-    canvas.add(img);
-    canvas.setActiveObject(img);
+    addObjectAndSetActive(img);
     selectedImage = img;
-    canvas.requestRenderAll();
     event.target.value = "";
   }
 
   function exportCanvas() {
-    const dataURL = canvas.toDataURL({ format: "png", quality: 1.0 });
+    const dataURL = canvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
     const link = document.createElement("a");
     link.download = "canvas-export.png";
     link.href = dataURL;
@@ -292,7 +295,6 @@
 
     const rect = cropRect.getBoundingRect();
     const img = selectedImage;
-    const imgRect = img.getBoundingRect();
 
     const scaleX = img.scaleX;
     const scaleY = img.scaleY;
