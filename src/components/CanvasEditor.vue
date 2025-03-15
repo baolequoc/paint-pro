@@ -28,7 +28,17 @@
 
 <script setup lang="ts">
   import { ref, onMounted, onBeforeUnmount, nextTick, useTemplateRef } from "vue";
-  import { Canvas as FabricJSCanvas, Rect, IText, PencilBrush, FabricImage } from "fabric";
+  import {
+    Canvas as FabricJSCanvas,
+    Rect,
+    IText,
+    PencilBrush,
+    FabricImage,
+    FabricObject,
+    FabricObjectProps,
+    ObjectEvents,
+    SerializedObjectProps
+  } from "fabric";
   import ResizeFrame from "./ResizeFrame.vue";
   import Toolbox from "./Toolbox.vue";
 
@@ -38,9 +48,9 @@
   const activeTool = ref("select");
   let canvas: FabricJSCanvas | null = null;
 
-  let selectedImage = null;
+  let selectedImage: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents> | null = null;
   const isCropping = ref(false);
-  const cropRect = null;
+  let cropRect: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents> | null = null;
 
   const brushColor = ref("#000000");
 
@@ -59,6 +69,14 @@
     if (canvas) {
       canvas.setDimensions({ width: value.width, height: value.height });
     }
+  }
+
+  function removeCanvasObjects(
+    objects: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents>[]
+  ) {
+    objects.forEach((obj) => {
+      canvas.remove(obj);
+    });
   }
 
   async function handlePaste(e) {
@@ -102,7 +120,7 @@
 
   function handleKeyDown(e) {
     if (["Delete", "Backspace"].includes(e.key)) {
-      canvas.getActiveObjects().forEach((obj) => canvas.remove(obj));
+      removeCanvasObjects(canvas.getActiveObjects());
       canvas.discardActiveObject();
       canvas.requestRenderAll();
     }
@@ -214,7 +232,7 @@
       img.scaleX = selectedImage.scaleX;
       img.scaleY = selectedImage.scaleY;
       img.angle = selectedImage.angle;
-      canvas.remove(selectedImage);
+      removeCanvasObjects([selectedImage]);
     }
 
     canvas.add(img);
@@ -264,7 +282,8 @@
 
     canvas.add(cropRect);
     canvas.setActiveObject(cropRect);
-    canvas.bringToFront(cropRect);
+    canvas.bringObjectToFront(cropRect);
+    canvas.requestRenderAll();
   }
 
   // ✂️ Apply actual image crop (flattened)
@@ -296,8 +315,7 @@
     const newImg = await FabricImage.fromURL(croppedDataUrl, { crossOrigin: "anonymous" });
     newImg.left = img.left + (rect.left - img.left);
     newImg.top = img.top + (rect.top - img.top);
-    canvas.remove(img);
-    canvas.remove(cropRect);
+    removeCanvasObjects([img, cropRect]);
     cropRect = null;
     selectedImage = null;
     isCropping.value = false;
