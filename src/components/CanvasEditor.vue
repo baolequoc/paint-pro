@@ -44,20 +44,26 @@
   import Toolbox from "./Toolbox.vue";
   import useFile from "../composables/useFile";
 
-  const canvasEl = useTemplateRef("canvasEl");
-  const fileInput = useTemplateRef("fileInput");
-  const canvasContainer = useTemplateRef("canvasContainer");
-  const activeTool = ref("select");
-  let canvas: FabricJSCanvas | null = null;
+  // --- Template Refs ---
+  const canvasEl = useTemplateRef<HTMLCanvasElement>("canvasEl");
+  const fileInput = useTemplateRef<HTMLInputElement>("fileInput");
+  const canvasContainer = useTemplateRef<HTMLDivElement>("canvasContainer");
 
+  // --- Reactive State & Variables ---
+  const activeTool = ref<"select" | "brush" | "rectangle" | "text">("select");
+  let canvas: FabricJSCanvas | null = null;
   let selectedImage: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents> | null = null;
   const isCropping = ref(false);
   let cropRect: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents> | null = null;
-
   const brushColor = ref("#000000");
+  const shapeColor = ref("#000000");
+  const strokeWidth = ref(2);
+
   const { getDataFromFile } = useFile();
 
-  function updateBrushColor(color: string) {
+  // --- Helper Functions ---
+
+  function updateBrushColor(color: string): void {
     if (!canvas) return;
     if (activeTool.value === "brush") {
       if (!canvas.freeDrawingBrush) {
@@ -68,27 +74,36 @@
     brushColor.value = color;
   }
 
-  function resizeCanvas(value: { width: number; height: number }) {
-    if (canvas) {
-      canvas.setDimensions({ width: value.width, height: value.height });
-    }
+  function resizeCanvas({ width, height }: { width: number; height: number }): void {
+    canvas?.setDimensions({ width, height });
   }
 
   function removeCanvasObjects(
     objects: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents>[]
-  ) {
-    objects.forEach((obj) => {
-      canvas.remove(obj);
+  ): void {
+    objects.forEach((obj) => canvas?.remove(obj));
+  }
+
+  function addObjectAndSetActive(
+    obj: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents>
+  ): void {
+    canvas?.add(obj);
+    canvas?.setActiveObject(obj);
+    canvas?.requestRenderAll();
+  }
+
+  async function readFileAsDataURL(file: File): Promise<string | ArrayBuffer | null> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result);
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
     });
   }
 
-  function addObjectAndSetActive(obj: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents>) {
-    canvas.add(obj);
-    canvas.setActiveObject(obj);
-    canvas.requestRenderAll();
-  }
+  // --- Event Handlers ---
 
-  async function handlePaste(e: ClipboardEvent) {
+  async function handlePaste(e: ClipboardEvent): Promise<void> {
     const items = e.clipboardData?.items;
     if (!items) return;
 
@@ -102,54 +117,36 @@
       .filter((data) => data !== null)
       .forEach(async ({ dataURL }) => {
         const img = await FabricImage.fromURL(dataURL as string, { crossOrigin: "anonymous" });
-        const scale = Math.min(canvas.width / img.width!, canvas.height / img.height!, 1);
+        const scale = Math.min(canvas!.width / img.width!, canvas!.height / img.height!, 1);
         img.scale(scale);
         img.set({ left: 50, top: 50 });
-        // Add image to canvas
         addObjectAndSetActive(img);
       });
   }
 
-  const shapeColor = ref("#000000");
-  const strokeWidth = ref(2);
+  function handleKeyDown(e: KeyboardEvent): void {
+    const activeObj = canvas?.getActiveObject();
 
-  function updateShapeColor(color: string) {
-    const activeObj = canvas.getActiveObject();
+    // Allow default text editing when in IText edit mode
+    if (activeObj && activeObj.type === "i-text" && (activeObj as IText).isEditing) return;
+
+    if (["Delete", "Backspace"].includes(e.key)) {
+      removeCanvasObjects(canvas?.getActiveObjects() || []);
+      canvas?.discardActiveObject();
+      canvas?.requestRenderAll();
+    }
+  }
+
+  function updateShapeColor(color: string): void {
+    const activeObj = canvas?.getActiveObject();
     if (activeObj) {
       shapeColor.value = color;
       activeObj.set("fill", shapeColor.value);
-      canvas.renderAll();
+      canvas?.renderAll();
     }
   }
 
-  function handleKeyDown(e: KeyboardEvent): void {
-    const activeObj = canvas.getActiveObject();
-
-    // If the active object is text and it's currently being edited,
-    // let the default text editing behavior happen.
-    if (activeObj && activeObj.type === "i-text" && (activeObj as IText).isEditing) {
-      return;
-    }
-
-    if (["Delete", "Backspace"].includes(e.key)) {
-      removeCanvasObjects(canvas.getActiveObjects());
-      canvas.discardActiveObject();
-      canvas.requestRenderAll();
-    }
-  }
-
-  function readFileAsDataURL(file: File) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target?.result);
-      reader.onerror = (err) => reject(err);
-      reader.readAsDataURL(file);
-    });
-  }
-
-  useEventListener("paste", handlePaste);
-  useEventListener("keydown", handleKeyDown);
-
+  // --- Canvas Initialization & Event Listener Registration ---
   onMounted(async () => {
     await nextTick();
     canvas = new FabricJSCanvas(canvasEl.value, {
@@ -159,93 +156,101 @@
       isDrawingMode: false
     });
 
-    canvasEl.value.focus();
+    canvasEl.value?.focus();
     canvas.renderAll();
   });
 
+  useEventListener("paste", handlePaste);
+  useEventListener("keydown", handleKeyDown);
+
+  // --- Tool Definitions ---
   const tools = {
     select: () => {
-      canvas.isDrawingMode = false;
+      if (canvas) canvas.isDrawingMode = false;
     },
     brush: () => {
-      canvas.isDrawingMode = true;
-      canvas.freeDrawingBrush = new PencilBrush(canvas);
-      canvas.freeDrawingBrush.width = 5;
-      canvas.freeDrawingBrush.color = "#000000";
+      if (canvas) {
+        canvas.isDrawingMode = true;
+        canvas.freeDrawingBrush = new PencilBrush(canvas);
+        canvas.freeDrawingBrush.width = 5;
+        canvas.freeDrawingBrush.color = "#000000";
+      }
     },
     rectangle: () => {
-      canvas.isDrawingMode = false;
-      const rect = new Rect({
-        left: 100,
-        top: 100,
-        width: 100,
-        height: 100,
-        fill: "transparent",
-        stroke: "black",
-        strokeWidth: 2
-      });
-      addObjectAndSetActive(rect);
+      if (canvas) {
+        canvas.isDrawingMode = false;
+        const rect = new Rect({
+          left: 100,
+          top: 100,
+          width: 100,
+          height: 100,
+          fill: "transparent",
+          stroke: "black",
+          strokeWidth: 2
+        });
+        addObjectAndSetActive(rect);
+      }
     },
     text: () => {
-      canvas.isDrawingMode = false;
-      const text = new IText("Edit me", {
-        left: 100,
-        top: 100,
-        fontSize: 20
-      });
-      addObjectAndSetActive(text);
+      if (canvas) {
+        canvas.isDrawingMode = false;
+        const text = new IText("Edit me", {
+          left: 100,
+          top: 100,
+          fontSize: 20
+        });
+        addObjectAndSetActive(text);
+      }
     }
   };
 
-  function setTool(toolName) {
+  function setTool(toolName: keyof typeof tools): void {
     activeTool.value = toolName;
-    if (tools[toolName]) {
-      tools[toolName]();
-    }
+    tools[toolName]?.();
   }
 
-  function triggerImageUpload() {
-    const activeObj = canvas.getActiveObject();
-    if (activeObj && activeObj.type === "image") {
-      selectedImage = activeObj;
-    } else {
-      selectedImage = null;
-    }
+  // --- File Upload Handling ---
+  function triggerImageUpload(): void {
+    const activeObj = canvas?.getActiveObject();
+    selectedImage = activeObj && activeObj.type === "image" ? activeObj : null;
     fileInput.value?.click();
   }
 
-  function triggerNewImageUpload() {
+  function triggerNewImageUpload(): void {
     selectedImage = null;
     fileInput.value?.click();
   }
 
-  async function handleFileUpload(event) {
-    const file = event.target.files[0];
+  async function handleFileUpload(event: Event): Promise<void> {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
     if (!file) return;
 
     const dataURL = await readFileAsDataURL(file);
-    const img = await FabricImage.fromURL(dataURL, { crossOrigin: "anonymous" });
+    const img = await FabricImage.fromURL(dataURL as string, { crossOrigin: "anonymous" });
+    const scale = Math.min(canvas!.width / img.width, canvas!.height / img.height, 1);
 
-    const scale = Math.min(canvas.width / img.width, canvas.height / img.height, 1);
-    img.scale(scale);
-    img.left = 50;
-    img.top = 50;
+    img.set({ left: 50, top: 50, scaleX: scale, scaleY: scale });
 
     if (selectedImage) {
-      img.left = selectedImage.left;
-      img.top = selectedImage.top;
-      img.scaleX = selectedImage.scaleX;
-      img.scaleY = selectedImage.scaleY;
-      img.angle = selectedImage.angle;
+      img.set({
+        left: selectedImage.left,
+        top: selectedImage.top,
+        scaleX: selectedImage.scaleX,
+        scaleY: selectedImage.scaleY,
+        angle: selectedImage.angle
+      });
       removeCanvasObjects([selectedImage]);
     }
 
     addObjectAndSetActive(img);
     selectedImage = img;
-    event.target.value = "";
+    target.value = "";
   }
 
-  function exportCanvas() {
+  // --- Canvas Export & Clear ---
+  function exportCanvas(): void {
+    if (!canvas) return;
     const dataURL = canvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
     const link = document.createElement("a");
     link.download = "canvas-export.png";
@@ -253,15 +258,16 @@
     link.click();
   }
 
-  function clearCanvas() {
+  function clearCanvas(): void {
+    if (!canvas) return;
     canvas.clear();
     canvas.backgroundColor = "#ffffff";
     canvas.requestRenderAll();
   }
 
-  // 📸 Start cropping
-  function startCrop() {
-    const active = canvas.getActiveObject();
+  // --- Cropping Functions ---
+  function startCrop(): void {
+    const active = canvas?.getActiveObject();
     if (!active || active.type !== "image") {
       alert("Please select an image to crop.");
       return;
@@ -283,40 +289,41 @@
       transparentCorners: false
     });
 
-    canvas.add(cropRect);
-    canvas.setActiveObject(cropRect);
-    canvas.bringObjectToFront(cropRect);
-    canvas.requestRenderAll();
+    canvas?.add(cropRect);
+    canvas?.setActiveObject(cropRect);
+    canvas?.bringObjectToFront(cropRect);
+    canvas?.requestRenderAll();
   }
 
-  // ✂️ Apply actual image crop (flattened)
-  async function applyCrop() {
-    if (!selectedImage || !cropRect) return;
+  async function applyCrop(): Promise<void> {
+    if (!selectedImage || !cropRect || !canvas) return;
 
     const rect = cropRect.getBoundingRect();
     const img = selectedImage;
-
-    const scaleX = img.scaleX;
-    const scaleY = img.scaleY;
+    const { scaleX, scaleY } = img;
 
     const cropX = (rect.left - img.left) / scaleX;
     const cropY = (rect.top - img.top) / scaleY;
     const cropWidth = rect.width / scaleX;
     const cropHeight = rect.height / scaleY;
 
-    // Create temp canvas to draw cropped image
+    // Create a temporary canvas for the cropped image
     const tempCanvas = document.createElement("canvas");
     tempCanvas.width = cropWidth;
     tempCanvas.height = cropHeight;
     const ctx = tempCanvas.getContext("2d");
-
-    const source = img._element;
-    ctx.drawImage(source, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+    if (ctx) {
+      const source = img._element;
+      ctx.drawImage(source, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+    }
 
     const croppedDataUrl = tempCanvas.toDataURL();
     const newImg = await FabricImage.fromURL(croppedDataUrl, { crossOrigin: "anonymous" });
-    newImg.left = img.left + (rect.left - img.left);
-    newImg.top = img.top + (rect.top - img.top);
+    newImg.set({
+      left: img.left + (rect.left - img.left),
+      top: img.top + (rect.top - img.top)
+    });
+
     removeCanvasObjects([img, cropRect]);
     cropRect = null;
     selectedImage = null;
