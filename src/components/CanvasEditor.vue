@@ -50,13 +50,7 @@
 
     <div ref="canvasContainer" class="canvas-container">
       <canvas ref="canvasEl" tabindex="0" />
-
-      <!-- Resize handles -->
-      <div class="resize-handle top" @mousedown="startResize('top')"></div>
-      <div class="resize-handle right" @mousedown="startResize('right')"></div>
-      <div class="resize-handle bottom" @mousedown="startResize('bottom')"></div>
-      <div class="resize-handle left" @mousedown="startResize('left')"></div>
-
+      <ResizeFrame :container="canvasContainer" @resize="resizeCanvas" />
       <!-- Hidden file input -->
       <input ref="fileInput" type="file" accept="image/*" style="display: none" @change="handleFileUpload" />
     </div>
@@ -67,6 +61,7 @@
   import { ref, onMounted, onBeforeUnmount, nextTick, useTemplateRef } from "vue";
   import { Canvas as FabricJSCanvas, Rect, IText, PencilBrush, FabricImage } from "fabric";
   import IconButton from "./IconButton.vue";
+  import ResizeFrame from "./ResizeFrame.vue";
 
   const canvasEl = useTemplateRef("canvasEl");
   const fileInput = useTemplateRef("fileInput");
@@ -74,60 +69,25 @@
   const activeTool = ref("select");
   let canvas: FabricJSCanvas | null = null;
 
-  let isResizing = false;
-  const currentDirection = ref<"top" | "right" | "bottom" | "left" | null>(null);
-
-  function handleResize(e: MouseEvent) {
-    if (!isResizing || !canvasEl.value) return;
-
-    const container = canvasEl.value.parentElement;
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-
-    let newWidth = rect.width;
-    let newHeight = rect.height;
-
-    if (currentDirection.value === "right") {
-      newWidth = e.clientX - rect.left;
-    } else if (currentDirection.value === "left") {
-      newWidth = rect.right - e.clientX;
-      container.style.left = `${e.clientX}px`;
-    } else if (currentDirection.value === "bottom") {
-      newHeight = e.clientY - rect.top;
-    } else if (currentDirection.value === "top") {
-      newHeight = rect.bottom - e.clientY;
-      container.style.top = `${e.clientY}px`;
-    }
-
-    // Apply the new size
-    (canvas as FabricJSCanvas).setDimensions({
-      width: Math.max(newWidth, 100),
-      height: Math.max(newHeight, 100)
-    });
-  }
-
-  function stopResize() {
-    isResizing = false;
-    currentDirection.value = null;
-  }
-
-  function startResize(direction: "top" | "right" | "bottom" | "left") {
-    isResizing = true;
-    currentDirection.value = direction;
-    document.addEventListener("mousemove", handleResize);
-    document.addEventListener("mouseup", stopResize);
-  }
-
-  let selectedImage = null;
+  const selectedImage = null;
   const isCropping = ref(false);
-  let cropRect = null;
+  const cropRect = null;
 
   const brushColor = ref("#000000");
 
   function updateBrushColor() {
+    if (!canvas) return;
     if (activeTool.value === "brush") {
+      if (!canvas.freeDrawingBrush) {
+        canvas.freeDrawingBrush = new PencilBrush(canvas);
+      }
       canvas.freeDrawingBrush.color = brushColor.value;
+    }
+  }
+
+  function resizeCanvas(value: { width: number; height: number }) {
+    if (canvas) {
+      canvas.setDimensions({ width: value.width, height: value.height });
     }
   }
 
@@ -385,44 +345,6 @@
 
 <style scoped>
   @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css");
-  .resize-handle {
-    position: absolute;
-    background: rgba(0, 123, 255, 0.6);
-    z-index: 10;
-    cursor: pointer;
-  }
-
-  .resize-handle.top {
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 8px;
-    cursor: ns-resize;
-  }
-
-  .resize-handle.right {
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 8px;
-    cursor: ew-resize;
-  }
-
-  .resize-handle.bottom {
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 8px;
-    cursor: ns-resize;
-  }
-
-  .resize-handle.left {
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 8px;
-    cursor: ew-resize;
-  }
 
   .editor-container {
     width: 100%;
