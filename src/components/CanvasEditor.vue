@@ -73,12 +73,10 @@
 
   // Undo/Redo functions that load the snapshot into the canvas.
   async function performUndo() {
-    console.log("undo");
     canvasHistory?.undo();
   }
 
   async function performRedo(): void {
-    console.log("Redo");
     canvasHistory?.redo();
   }
 
