@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, nextTick, useTemplateRef } from "vue";
+  import { ref, onMounted, nextTick, useTemplateRef, onUnmounted, computed } from "vue";
   import {
     Canvas as FabricJSCanvas,
     Rect,
@@ -39,16 +39,18 @@
     ObjectEvents,
     SerializedObjectProps
   } from "fabric";
-  import { useEventListener } from "@vueuse/core";
+  import { useEventListener, useRefHistory, onKeyStroke, useDebounceFn } from "@vueuse/core";
   import ResizeFrame from "./ResizeFrame.vue";
   import Toolbox from "./Toolbox.vue";
   import useFile from "../composables/useFile";
+  import CanvasHistory from "../services/CanvasHistory.ts";
 
   const canvasEl = useTemplateRef("canvasEl");
   const fileInput = useTemplateRef("fileInput");
   const canvasContainer = useTemplateRef("canvasContainer");
   const activeTool = ref("select");
   let canvas: FabricJSCanvas | null = null;
+  let canvasHistory: CanvasHistory | null = null;
 
   let selectedImage: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents> | null = null;
   const isCropping = ref(false);
@@ -56,6 +58,29 @@
 
   const brushColor = ref("#000000");
   const { getDataFromFile } = useFile();
+  const isClearingCanvas = ref(false);
+
+  onKeyStroke("z", (e) => {
+    if (e.metaKey) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        performRedo();
+      } else {
+        performUndo();
+      }
+    }
+  });
+
+  // Undo/Redo functions that load the snapshot into the canvas.
+  async function performUndo() {
+    console.log("undo");
+    canvasHistory?.undo();
+  }
+
+  async function performRedo(): void {
+    console.log("Redo");
+    canvasHistory?.redo();
+  }
 
   function updateBrushColor(color: string) {
     if (!canvas) return;
@@ -86,6 +111,7 @@
     canvas.add(obj);
     canvas.setActiveObject(obj);
     canvas.requestRenderAll();
+    canvasHistory?.triggerSave();
   }
 
   async function handlePaste(e: ClipboardEvent) {
@@ -123,15 +149,14 @@
   }
 
   function handleKeyDown(e: KeyboardEvent): void {
-    const activeObj = canvas.getActiveObject();
-
-    // If the active object is text and it's currently being edited,
-    // let the default text editing behavior happen.
-    if (activeObj && activeObj.type === "i-text" && (activeObj as IText).isEditing) {
-      return;
-    }
-
     if (["Delete", "Backspace"].includes(e.key)) {
+      const activeObj = canvas.getActiveObject();
+
+      // If the active object is text and it's currently being edited,
+      // let the default text editing behavior happen.
+      if (activeObj && activeObj.type === "i-text" && (activeObj as IText).isEditing) {
+        return;
+      }
       removeCanvasObjects(canvas.getActiveObjects());
       canvas.discardActiveObject();
       canvas.requestRenderAll();
@@ -159,6 +184,12 @@
       isDrawingMode: false
     });
 
+    // Later, attach the debounced function to events
+    if (canvas) {
+      canvasHistory = new CanvasHistory(canvas);
+      canvasHistory.init();
+    }
+
     canvasEl.value.focus();
     canvas.renderAll();
   });
@@ -172,6 +203,16 @@
       canvas.freeDrawingBrush = new PencilBrush(canvas);
       canvas.freeDrawingBrush.width = 5;
       canvas.freeDrawingBrush.color = "#000000";
+      // Monkey patch onMouseUp
+      const originalOnMouseUp = canvas.freeDrawingBrush.onMouseUp;
+
+      canvas.freeDrawingBrush.onMouseUp = function (...args) {
+        const result = originalOnMouseUp.apply(this, args);
+        // Now the path is fully added to canvas
+        canvas.requestRenderAll(); // optional
+        canvas.fire("custom:added");
+        return result;
+      };
     },
     rectangle: () => {
       canvas.isDrawingMode = false;
@@ -254,9 +295,11 @@
   }
 
   function clearCanvas() {
+    isClearingCanvas.value = true;
     canvas.clear();
     canvas.backgroundColor = "#ffffff";
     canvas.requestRenderAll();
+    isClearingCanvas.value = false;
   }
 
   // 📸 Start cropping
@@ -321,9 +364,7 @@
     cropRect = null;
     selectedImage = null;
     isCropping.value = false;
-    canvas.add(newImg);
-    canvas.setActiveObject(newImg);
-    canvas.requestRenderAll();
+    addObjectAndSetActive(newImg);
   }
 </script>
 
