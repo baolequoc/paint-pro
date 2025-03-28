@@ -310,8 +310,46 @@
     event.target.value = "";
   }
 
-  function exportCanvas() {
-    const dataURL = canvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
+  async function exportCanvas() {
+    const activeObject = canvas.getActiveObject();
+    let dataURL;
+    
+    if (activeObject) {
+      // Create a temporary canvas for the selected object
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      
+      // Set canvas size to match the object's dimensions
+      const bounds = activeObject.getBoundingRect();
+      tempCanvas.width = bounds.width;
+      tempCanvas.height = bounds.height;
+      
+      // Create a temporary fabric canvas
+      const tempFabricCanvas = new FabricJSCanvas(tempCanvas, {
+        width: bounds.width,
+        height: bounds.height,
+        backgroundColor: 'transparent'
+      });
+      
+      // Properly clone the object using async/await
+      const clonedObject = await activeObject.clone();
+      
+      // Reset position to top-left of the temporary canvas
+      clonedObject.set({
+        left: 0,
+        top: 0,
+        evented: true
+      });
+      
+      tempFabricCanvas.add(clonedObject);
+      tempFabricCanvas.renderAll();
+      
+      dataURL = tempCanvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
+    } else {
+      // Export entire canvas if no object is selected
+      dataURL = canvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
+    }
+    
     const link = document.createElement("a");
     link.download = "canvas-export.png";
     link.href = dataURL;
