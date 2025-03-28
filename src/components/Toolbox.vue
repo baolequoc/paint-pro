@@ -13,10 +13,24 @@
         tooltip="Brush Tool"
         @click="setTool('brush')"
       />
+      <IconButton
+        icon-class="fas fa-slash"
+        :active="activeTool === 'line'"
+        tooltip="Line Tool"
+        @click="setTool('line')"
+      />
+      <input
+        v-if="activeTool === 'line'"
+        :model-value="brushColor"
+        type="color"
+        class="color-picker"
+        @input="$emit('update:brushColor', $event.target.value)"
+      />
       <input
         v-if="activeTool === 'brush'"
         :model-value="brushColor"
         type="color"
+        class="color-picker"
         @input="$emit('update:brushColor', $event.target.value)"
       />
       <IconButton
@@ -32,7 +46,7 @@
         @click="setTool('text')"
       />
       <div v-if="activeTool === 'rectangle' || activeTool === 'text'" class="shape-options">
-        <input :model-value="shapeColor" type="color" @input="$emit('update:shapeColor', $event.target.value)" />
+        <input :model-value="shapeColor" type="color" class="color-picker" @input="$emit('update:shapeColor', $event.target.value)" />
       </div>
     </div>
 
@@ -86,41 +100,74 @@
 
 <style scoped>
   .toolbar {
-    padding: 16px;
-    background: #ffffff;
-    border-bottom: 1px solid #e2e8f0;
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px;
+    background: rgba(18, 38, 46, 0.95);
+    border-radius: 8px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    z-index: 10;
+    flex-wrap: nowrap;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    backdrop-filter: blur(8px);
   }
 
   .tool-group {
     display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
+    gap: 4px;
     align-items: center;
+    padding: 0 4px;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .tool-group:last-child {
+    border-right: none;
   }
 
   .toolbar button {
-    padding: 10px 14px;
+    padding: 8px;
     cursor: pointer;
     border: none;
-    border-radius: 8px; /* Rounded corners */
-    background-color: #ffffff;
-    color: #555;
+    border-radius: 4px;
+    background-color: transparent;
+    color: #ffffff;
     font-size: 14px;
-    transition: background-color 0.3s, transform 0.2s;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    min-height: 32px;
   }
 
   .toolbar button:hover {
-    background-color: #e7f1ff; /* Light hover effect */
-    transform: scale(1.05);
+    background-color: rgba(255, 255, 255, 0.1);
   }
 
   .toolbar button.active {
-    background-color: #bee3f8; /* Active button color */
-    color: #3182ce;
+    background-color: rgba(255, 255, 255, 0.2);
+    color: #4fd1c5;
+  }
+
+  .color-picker {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+  }
+
+  .color-picker::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+
+  .color-picker::-webkit-color-swatch {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
   }
 </style>

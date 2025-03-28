@@ -37,7 +37,8 @@
     FabricObject,
     FabricObjectProps,
     ObjectEvents,
-    SerializedObjectProps
+    SerializedObjectProps,
+    Line
   } from "fabric";
   import { useEventListener, useRefHistory, onKeyStroke, useDebounceFn } from "@vueuse/core";
   import ResizeFrame from "./ResizeFrame.vue";
@@ -175,14 +176,25 @@
 
   onMounted(async () => {
     await nextTick();
+    const containerWidth = window.innerWidth;
+    const containerHeight = window.innerHeight;
+    
     canvas = new FabricJSCanvas(canvasEl.value, {
-      width: 800,
-      height: 600,
-      backgroundColor: "#ffffff",
+      width: containerWidth,
+      height: containerHeight,
+      backgroundColor: '#1e1e1e', // Dark gray background
       isDrawingMode: false
     });
 
-    // Later, attach the debounced function to events
+    // Add resize listener
+    window.addEventListener('resize', () => {
+      canvas.setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+      canvas.renderAll();
+    });
+
     if (canvas) {
       canvasHistory = new CanvasHistory(canvas);
       canvasHistory.init();
@@ -195,6 +207,13 @@
   const tools = {
     select: () => {
       canvas.isDrawingMode = false;
+      // Remove line drawing event listeners if they exist
+      if (isDrawingLine.value) {
+        canvas.off('mouse:down', startDrawingLine);
+        canvas.off('mouse:move', drawLine);
+        canvas.off('mouse:up', finishDrawingLine);
+        isDrawingLine.value = false;
+      }
     },
     brush: () => {
       canvas.isDrawingMode = true;
@@ -233,6 +252,13 @@
         fontSize: 20
       });
       addObjectAndSetActive(text);
+    },
+    line: () => {
+      canvas.isDrawingMode = false;
+      isDrawingLine.value = true;
+      canvas.on('mouse:down', startDrawingLine);
+      canvas.on('mouse:move', drawLine);
+      canvas.on('mouse:up', finishDrawingLine);
     }
   };
 
@@ -364,49 +390,93 @@
     isCropping.value = false;
     addObjectAndSetActive(newImg);
   }
+
+  // Add these new variables and functions for line drawing
+  const isDrawingLine = ref(false);
+  let lineStartPoint = null;
+  let currentLine = null;
+
+  function startDrawingLine(o) {
+    const pointer = canvas.getPointer(o.e);
+    lineStartPoint = { x: pointer.x, y: pointer.y };
+    
+    currentLine = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
+      stroke: brushColor.value,
+      strokeWidth: 2,
+      selectable: true,
+    });
+    
+    canvas.add(currentLine);
+    canvas.requestRenderAll();
+  }
+
+  function drawLine(o) {
+    if (!isDrawingLine.value || !lineStartPoint) return;
+    
+    const pointer = canvas.getPointer(o.e);
+    
+    currentLine.set({
+      x2: pointer.x,
+      y2: pointer.y
+    });
+    
+    canvas.requestRenderAll();
+  }
+
+  function finishDrawingLine() {
+    if (!isDrawingLine.value || !currentLine) return;
+    
+    currentLine.set({
+      selectable: true,
+    });
+    
+    canvas.requestRenderAll();
+    canvasHistory?.triggerSave();
+    
+    // Reset the line drawing state
+    lineStartPoint = null;
+    currentLine = null;
+  }
 </script>
 
 <style scoped>
   @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css");
 
   .editor-container {
-    width: 100%;
+    width: 100vw;
     height: 100vh;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    background-color: #f0f4f8; /* Softer background */
+    background-color: #0d1117;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
   }
 
   .canvas-container {
-    position: relative;
-    width: fit-content;
-    height: fit-content;
-    background-color: #f0f4f8;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
-    border: #3182ce;
-    border-width: 10px;
-    resize: both;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    background-color: transparent;
   }
 
   canvas {
     display: block;
-    width: 100%;
-    height: 100%;
+    width: 100% !important;
+    height: 100% !important;
     outline: none;
   }
 
-  /* Responsive adjustments */
+  /* Remove padding-top since we want true fullscreen */
   @media (max-width: 768px) {
-    .toolbar {
-      padding: 12px;
-      gap: 8px;
-      flex-direction: column;
-    }
-
-    .tool-group {
-      width: 100%;
-      justify-content: space-between;
+    .editor-container {
+      padding-top: 0;
     }
   }
 </style>
