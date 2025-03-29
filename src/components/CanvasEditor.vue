@@ -202,6 +202,7 @@
   let currentLine = null;
 
   function startDrawingLine(o) {
+    canvas.isDrawingMode = true;
     const pointer = canvas.getPointer(o.e);
     lineStartPoint = { x: pointer.x, y: pointer.y };
 
@@ -245,6 +246,7 @@
     // Reset the line drawing state
     lineStartPoint = null;
     currentLine = null;
+    setTool("select");
   }
 
   onMounted(async () => {
@@ -342,9 +344,10 @@
         fontSize: 20
       });
       addObjectAndSetActive(text);
+      setTool("select");
     },
     line: () => {
-      canvas.isDrawingMode = false;
+      canvas.isDrawingMode = true;
       isDrawingLine.value = true;
       canvas.on("mouse:down", startDrawingLine);
       canvas.on("mouse:move", drawLine);
@@ -374,7 +377,7 @@
     fileInput.value?.click();
   }
 
-  async function handleFileUpload(event) {
+  async function handleFileUpload(event: any) {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -400,9 +403,51 @@
     event.target.value = "";
   }
 
+  async function getImageDataURL() {
+    const activeObject = canvas.getActiveObject();
+    let dataURL;
+    
+    if (activeObject) {
+      // Create a temporary canvas for the selected object
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      
+      // Set canvas size to match the object's dimensions
+      const bounds = activeObject.getBoundingRect();
+      tempCanvas.width = bounds.width;
+      tempCanvas.height = bounds.height;
+      
+      // Create a temporary fabric canvas
+      const tempFabricCanvas = new FabricJSCanvas(tempCanvas, {
+        width: bounds.width,
+        height: bounds.height,
+        backgroundColor: 'transparent'
+      });
+      
+      // Properly clone the object using async/await
+      const clonedObject = await activeObject.clone();
+      
+      // Reset position to top-left of the temporary canvas
+      clonedObject.set({
+        left: 0,
+        top: 0,
+        evented: true
+      });
+      
+      tempFabricCanvas.add(clonedObject);
+      tempFabricCanvas.renderAll();
+      
+      dataURL = tempCanvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
+    } else {
+      // Export entire canvas if no object is selected
+      dataURL = canvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
+    }
+    return dataURL;
+  }
+
   async function exportToClipboard() {
     if (!canvas) return;
-    const dataURL = canvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
+    const dataURL = await getImageDataURL();
     try {
       const response = await fetch(dataURL);
       const blob = await response.blob();
@@ -418,9 +463,10 @@
     }
   }
 
-  function exportToPNG() {
+  async function exportToPNG() {
     if (!canvas) return;
-    const dataURL = canvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
+
+    const dataURL = await getImageDataURL();
     const link = document.createElement("a");
     link.download = "canvas-export.png";
     link.href = dataURL;
