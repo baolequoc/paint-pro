@@ -46,7 +46,12 @@
         @click="setTool('text')"
       />
       <div v-if="activeTool === 'rectangle' || activeTool === 'text'" class="shape-options">
-        <input :model-value="shapeColor" type="color" class="color-picker" @input="$emit('update:shapeColor', $event.target.value)" />
+        <input
+          :model-value="shapeColor"
+          type="color"
+          class="color-picker"
+          @input="$emit('update:shapeColor', $event.target.value)"
+        />
       </div>
     </div>
 
@@ -105,14 +110,15 @@
     left: 50%;
     transform: translateX(-50%);
     padding: 8px;
-    background: rgba(18, 38, 46, 0.95);
+    background: rgba(255, 255, 255, 0.95);
     border-radius: 8px;
     display: flex;
     flex-wrap: nowrap;
     gap: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     z-index: 1000;
     backdrop-filter: blur(8px);
+    border: 1px solid rgba(0, 0, 0, 0.1);
   }
 
   .tool-group {
@@ -120,7 +126,7 @@
     gap: 4px;
     align-items: center;
     padding: 0 4px;
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid rgba(0, 0, 0, 0.1);
   }
 
   .tool-group:last-child {
@@ -133,9 +139,9 @@
     border: none;
     border-radius: 4px;
     background-color: transparent;
-    color: #ffffff;
+    color: #333333;
     font-size: 14px;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -144,19 +150,19 @@
   }
 
   .toolbar button:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.05);
   }
 
   .toolbar button.active {
-    background-color: rgba(255, 255, 255, 0.2);
-    color: #4fd1c5;
+    background-color: rgba(0, 0, 0, 0.1);
+    color: #2563eb;
   }
 
   .color-picker {
     width: 24px;
     height: 24px;
     padding: 0;
-    border: none;
+    border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 4px;
     cursor: pointer;
     background: transparent;
@@ -167,7 +173,23 @@
   }
 
   .color-picker::-webkit-color-swatch {
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: none;
     border-radius: 4px;
+  }
+
+  .btn-export,
+  .btn-clear {
+    color: #333333;
+    background-color: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  .btn-export:hover,
+  .btn-clear:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .btn-clear {
+    color: #dc2626;
   }
 </style>

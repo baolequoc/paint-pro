@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, nextTick, useTemplateRef, onUnmounted, computed } from "vue";
+  import { ref, onMounted, nextTick, useTemplateRef } from "vue";
   import {
     Canvas as FabricJSCanvas,
     Rect,
@@ -174,20 +174,71 @@
   useEventListener("paste", handlePaste);
   useEventListener("keydown", handleKeyDown);
 
+  // Add these new variables and functions for line drawing
+  const isDrawingLine = ref(false);
+  let lineStartPoint = null;
+  let currentLine = null;
+
+  function startDrawingLine(o) {
+    const pointer = canvas.getPointer(o.e);
+    lineStartPoint = { x: pointer.x, y: pointer.y };
+
+    currentLine = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
+      stroke: brushColor.value,
+      strokeWidth: strokeWidth.value,
+      selectable: true,
+      evented: true
+    });
+
+    canvas.add(currentLine);
+    canvas.requestRenderAll();
+  }
+
+  function drawLine(o) {
+    if (!isDrawingLine.value || !lineStartPoint) return;
+
+    const pointer = canvas.getPointer(o.e);
+
+    // Update line end point
+    currentLine.set({
+      x2: pointer.x,
+      y2: pointer.y
+    });
+
+    canvas.requestRenderAll();
+  }
+
+  function finishDrawingLine() {
+    if (!isDrawingLine.value || !currentLine) return;
+
+    // Make the line selectable and save to history
+    currentLine.set({
+      selectable: true,
+      evented: true
+    });
+
+    canvas.requestRenderAll();
+    canvasHistory?.triggerSave();
+
+    // Reset the line drawing state
+    lineStartPoint = null;
+    currentLine = null;
+  }
+
   onMounted(async () => {
     await nextTick();
     const containerWidth = window.innerWidth;
     const containerHeight = window.innerHeight;
-    
+
     canvas = new FabricJSCanvas(canvasEl.value, {
       width: containerWidth,
       height: containerHeight,
-      backgroundColor: '#1e1e1e', // Dark gray background
+      backgroundColor: "#ffffff", // White background
       isDrawingMode: false
     });
 
     // Add resize listener
-    window.addEventListener('resize', () => {
+    window.addEventListener("resize", () => {
       canvas.setDimensions({
         width: window.innerWidth,
         height: window.innerHeight
@@ -209,9 +260,9 @@
       canvas.isDrawingMode = false;
       // Remove line drawing event listeners if they exist
       if (isDrawingLine.value) {
-        canvas.off('mouse:down', startDrawingLine);
-        canvas.off('mouse:move', drawLine);
-        canvas.off('mouse:up', finishDrawingLine);
+        canvas.off("mouse:down", startDrawingLine);
+        canvas.off("mouse:move", drawLine);
+        canvas.off("mouse:up", finishDrawingLine);
         isDrawingLine.value = false;
       }
     },
@@ -256,9 +307,9 @@
     line: () => {
       canvas.isDrawingMode = false;
       isDrawingLine.value = true;
-      canvas.on('mouse:down', startDrawingLine);
-      canvas.on('mouse:move', drawLine);
-      canvas.on('mouse:up', finishDrawingLine);
+      canvas.on("mouse:down", startDrawingLine);
+      canvas.on("mouse:move", drawLine);
+      canvas.on("mouse:up", finishDrawingLine);
     }
   };
 
@@ -310,46 +361,8 @@
     event.target.value = "";
   }
 
-  async function exportCanvas() {
-    const activeObject = canvas.getActiveObject();
-    let dataURL;
-    
-    if (activeObject) {
-      // Create a temporary canvas for the selected object
-      const tempCanvas = document.createElement('canvas');
-      const tempCtx = tempCanvas.getContext('2d');
-      
-      // Set canvas size to match the object's dimensions
-      const bounds = activeObject.getBoundingRect();
-      tempCanvas.width = bounds.width;
-      tempCanvas.height = bounds.height;
-      
-      // Create a temporary fabric canvas
-      const tempFabricCanvas = new FabricJSCanvas(tempCanvas, {
-        width: bounds.width,
-        height: bounds.height,
-        backgroundColor: 'transparent'
-      });
-      
-      // Properly clone the object using async/await
-      const clonedObject = await activeObject.clone();
-      
-      // Reset position to top-left of the temporary canvas
-      clonedObject.set({
-        left: 0,
-        top: 0,
-        evented: true
-      });
-      
-      tempFabricCanvas.add(clonedObject);
-      tempFabricCanvas.renderAll();
-      
-      dataURL = tempCanvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
-    } else {
-      // Export entire canvas if no object is selected
-      dataURL = canvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
-    }
-    
+  function exportCanvas() {
+    const dataURL = canvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
     const link = document.createElement("a");
     link.download = "canvas-export.png";
     link.href = dataURL;
@@ -428,53 +441,6 @@
     isCropping.value = false;
     addObjectAndSetActive(newImg);
   }
-
-  // Add these new variables and functions for line drawing
-  const isDrawingLine = ref(false);
-  let lineStartPoint = null;
-  let currentLine = null;
-
-  function startDrawingLine(o) {
-    const pointer = canvas.getPointer(o.e);
-    lineStartPoint = { x: pointer.x, y: pointer.y };
-    
-    currentLine = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
-      stroke: brushColor.value,
-      strokeWidth: 2,
-      selectable: true,
-    });
-    
-    canvas.add(currentLine);
-    canvas.requestRenderAll();
-  }
-
-  function drawLine(o) {
-    if (!isDrawingLine.value || !lineStartPoint) return;
-    
-    const pointer = canvas.getPointer(o.e);
-    
-    currentLine.set({
-      x2: pointer.x,
-      y2: pointer.y
-    });
-    
-    canvas.requestRenderAll();
-  }
-
-  function finishDrawingLine() {
-    if (!isDrawingLine.value || !currentLine) return;
-    
-    currentLine.set({
-      selectable: true,
-    });
-    
-    canvas.requestRenderAll();
-    canvasHistory?.triggerSave();
-    
-    // Reset the line drawing state
-    lineStartPoint = null;
-    currentLine = null;
-  }
 </script>
 
 <style scoped>
@@ -488,7 +454,7 @@
     align-items: center;
     justify-content: center;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    background-color: #0d1117;
+    background-color: #f5f5f5; /* Light gray background */
     overflow: hidden;
     position: fixed;
     top: 0;
@@ -501,7 +467,8 @@
     left: 0;
     width: 100vw !important;
     height: 100vh !important;
-    background-color: transparent;
+    background-color: #ffffff; /* White background */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Subtle shadow */
   }
 
   canvas {
