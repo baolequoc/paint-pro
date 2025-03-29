@@ -1,5 +1,5 @@
 <template>
-  <div class="editor-container">
+  <div class="w-screen h-screen flex flex-col items-center justify-center font-sans bg-gray-100 overflow-hidden fixed top-0 left-0">
     <Toolbox
       :active-tool="activeTool"
       :brush-color="brushColor"
@@ -36,18 +36,19 @@
 
     <div
       ref="canvasContainer"
-      class="canvas-container"
+      class="absolute top-0 left-0 w-screen h-screen bg-white shadow-md"
     >
       <canvas
         ref="canvasEl"
         tabindex="0"
+        class="block w-full h-full outline-none"
       />
       <!-- Upload image -->
       <input
         ref="fileInput"
         type="file"
         accept="image/*"
-        style="display: none"
+        class="hidden"
         @change="handleFileUpload"
       >
     </div>
@@ -55,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, nextTick, useTemplateRef } from "vue";
+  import { ref, onMounted, nextTick, useTemplateRef, onUnmounted } from "vue";
   import {
     Canvas as FabricJSCanvas,
     Rect,
@@ -266,9 +267,32 @@
       canvasHistory.init();
     }
 
+    canvas.on('mouse:wheel', function(opt) {
+      const delta = opt.e.deltaY;
+      const pointer = canvas.getPointer(opt.e);
+      let zoom = canvas.getZoom();
+      zoom *= 0.999 ** delta;
+      if (zoom > 20) zoom = 20;
+      if (zoom < 0.01) zoom = 0.01;
+
+      // Get the point in canvas coordinates before zoom
+      const x = pointer.x;
+      const y = pointer.y;
+
+      // Set zoom while maintaining the point position
+      canvas.zoomToPoint({ x, y }, zoom);
+
+      opt.e.preventDefault();
+      opt.e.stopPropagation();
+    })
+
     canvasEl.value.focus();
     canvas.renderAll();
   });
+
+  onUnmounted(() => {
+    canvas?.off('mouse:wheel');
+  })
 
   const tools = {
     select: () => {
@@ -459,42 +483,5 @@
 </script>
 
 <style scoped>
-  .editor-container {
-    width: 100vw;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    background-color: #f5f5f5; /* Light gray background */
-    overflow: hidden;
-    position: fixed;
-    top: 0;
-    left: 0;
-  }
-
-  .canvas-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100vw !important;
-    height: 100vh !important;
-    background-color: #ffffff; /* White background */
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-  }
-
-  canvas {
-    display: block;
-    width: 100% !important;
-    height: 100% !important;
-    outline: none;
-  }
-
-  /* Remove padding-top since we want true fullscreen */
-  @media (max-width: 768px) {
-    .editor-container {
-      padding-top: 0;
-    }
-  }
+  /* Remove all CSS since we're using Tailwind classes now */
 </style>
