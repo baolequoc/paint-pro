@@ -1,6 +1,6 @@
 /* eslint-disable no-underscore-dangle */
 import { cloneDeep } from "lodash";
-import { util as FabricUtil, Canvas as FabricJSCanvas } from "fabric";
+import { Canvas as FabricJSCanvas } from "fabric";
 
 export default class CanvasHistory {
   private canvas: FabricJSCanvas;

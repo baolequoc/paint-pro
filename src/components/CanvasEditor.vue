@@ -17,11 +17,22 @@
       @clear="clearCanvas"
     />
 
-    <div ref="canvasContainer" class="canvas-container">
-      <canvas ref="canvasEl" tabindex="0" />
-      <ResizeFrame :container="canvasContainer" @resize="resizeCanvas" />
-      <!-- Hidden file input -->
-      <input ref="fileInput" type="file" accept="image/*" style="display: none" @change="handleFileUpload" />
+    <div
+      ref="canvasContainer"
+      class="canvas-container"
+    >
+      <canvas
+        ref="canvasEl"
+        tabindex="0"
+      />
+      <!-- Upload image -->
+      <input
+        ref="fileInput"
+        type="file"
+        accept="image/*"
+        style="display: none"
+        @change="handleFileUpload"
+      >
     </div>
   </div>
 </template>
@@ -40,11 +51,11 @@
     SerializedObjectProps,
     Line
   } from "fabric";
-  import { useEventListener, useRefHistory, onKeyStroke, useDebounceFn } from "@vueuse/core";
+  import { useEventListener, onKeyStroke } from "@vueuse/core";
   import ResizeFrame from "./ResizeFrame.vue";
   import Toolbox from "./Toolbox.vue";
   import useFile from "../composables/useFile";
-  import CanvasHistory from "../services/CanvasHistory.ts";
+  import CanvasHistory from "../services/canvasHistory";
 
   const canvasEl = useTemplateRef("canvasEl");
   const fileInput = useTemplateRef("fileInput");
@@ -444,8 +455,6 @@
 </script>
 
 <style scoped>
-  @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css");
-
   .editor-container {
     width: 100vw;
     height: 100vh;

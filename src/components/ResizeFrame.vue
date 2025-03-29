@@ -1,9 +1,17 @@
 <template>
-  <!-- Resize handles -->
-  <div class="resize-handle top"></div>
-  <div class="resize-handle right" @mousedown="startResize('right')"></div>
-  <div class="resize-handle bottom" @mousedown="startResize('bottom')"></div>
-  <div class="resize-handle left" @mousedown="startResize('left')"></div>
+  <div class="resize-handle top" />
+  <div
+    class="resize-handle right"
+    @mousedown="startResize('right')"
+  />
+  <div
+    class="resize-handle bottom"
+    @mousedown="startResize('bottom')"
+  />
+  <div
+    class="resize-handle left"
+    @mousedown="startResize('left')"
+  />
 </template>
 <script setup lang="ts">
   import { ref, defineProps, defineEmits } from "vue";
@@ -58,7 +66,6 @@
 <style scoped>
   .resize-handle {
     position: absolute;
-    background: rgba(0, 123, 255, 0.6);
     z-index: 10;
     cursor: pointer;
   }
@@ -67,7 +74,7 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 8px;
+    height: 2px;
     cursor: ns-resize;
   }
 
@@ -75,7 +82,7 @@
     top: 0;
     right: 0;
     bottom: 0;
-    width: 8px;
+    width: 2px;
     cursor: ew-resize;
   }
 
@@ -83,7 +90,7 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 8px;
+    height: 2px;
     cursor: ns-resize;
   }
 
@@ -91,7 +98,7 @@
     top: 0;
     left: 0;
     bottom: 0;
-    width: 8px;
+    width: 2px;
     cursor: ew-resize;
   }
 </style>

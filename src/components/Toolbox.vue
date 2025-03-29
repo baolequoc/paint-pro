@@ -25,14 +25,14 @@
         type="color"
         class="color-picker"
         @input="$emit('update:brushColor', $event.target.value)"
-      />
+      >
       <input
         v-if="activeTool === 'brush'"
         :model-value="brushColor"
         type="color"
         class="color-picker"
         @input="$emit('update:brushColor', $event.target.value)"
-      />
+      >
       <IconButton
         icon-class="fas fa-square"
         :active="activeTool === 'rectangle'"
@@ -45,29 +45,55 @@
         tooltip="Text Tool"
         @click="setTool('text')"
       />
-      <div v-if="activeTool === 'rectangle' || activeTool === 'text'" class="shape-options">
+      <div
+        v-if="activeTool === 'rectangle' || activeTool === 'text'"
+        class="shape-options"
+      >
         <input
           :model-value="shapeColor"
           type="color"
           class="color-picker"
           @input="$emit('update:shapeColor', $event.target.value)"
-        />
+        >
       </div>
     </div>
 
     <div class="tool-group">
-      <IconButton icon-class="fas fa-exchange-alt" tooltip="Replace Image" @click="$emit('triggerImageUpload')" />
-      <IconButton icon-class="fas fa-file-image" tooltip="Add File" @click="$emit('triggerNewImageUpload')" />
-      <IconButton icon-class="fas fa-crop-alt" tooltip="Crop" @click="$emit('startCrop')" />
-      <IconButton v-if="isCropping" icon-class="fas fa-check" tooltip="Apply Crop" @click="$emit('applyCrop')" />
+      <IconButton
+        icon-class="fas fa-exchange-alt"
+        tooltip="Replace Image"
+        @click="$emit('triggerImageUpload')"
+      />
+      <IconButton
+        icon-class="fas fa-file-image"
+        tooltip="Add File"
+        @click="$emit('triggerNewImageUpload')"
+      />
+      <IconButton
+        icon-class="fas fa-crop-alt"
+        tooltip="Crop"
+        @click="$emit('startCrop')"
+      />
+      <IconButton
+        v-if="isCropping"
+        icon-class="fas fa-check"
+        tooltip="Apply Crop"
+        @click="$emit('applyCrop')"
+      />
     </div>
 
     <div class="tool-group actions">
-      <button class="btn-export" @click="$emit('export')">
-        <i class="fas fa-download"></i>
+      <button
+        class="btn-export"
+        @click="$emit('export')"
+      >
+        <i class="fas fa-download" />
       </button>
-      <button class="btn-clear" @click="$emit('clear')">
-        <i class="fas fa-trash-alt"></i>
+      <button
+        class="btn-clear"
+        @click="$emit('clear')"
+      >
+        <i class="fas fa-trash-alt" />
       </button>
     </div>
   </div>
@@ -78,11 +104,26 @@
   import IconButton from "./IconButton.vue";
 
   const props = defineProps({
-    activeTool: String,
-    brushColor: String,
-    shapeColor: String,
-    strokeWidth: Number,
-    isCropping: Boolean
+    activeTool: {
+      type: String,
+      default: 'select'
+    },
+    brushColor: {
+      type: String,
+      default: '#000000'
+    },
+    shapeColor: {
+      type: String,
+      default: '#000000'
+    },
+    strokeWidth: {
+      type: Number,
+      default: 2
+    },
+    isCropping: {
+      type: Boolean,
+      default: false
+    }
   });
 
   const emit = defineEmits([
