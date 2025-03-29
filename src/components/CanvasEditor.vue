@@ -16,6 +16,23 @@
       @export="exportCanvas"
       @clear="clearCanvas"
     />
+    <div class="p-6 max-w-sm mx-auto bg-white rounded-xl shadow-md flex items-center space-x-4">
+      <div class="flex-shrink-0">
+        <img
+          class="h-12 w-12"
+          src="/img/logo.svg"
+          alt="ChitChat Logo"
+        >
+      </div>
+      <div>
+        <div class="text-xl font-medium text-black">
+          ChitChat
+        </div>
+        <p class="text-gray-500">
+          You have a new message!
+        </p>
+      </div>
+    </div>
 
     <div
       ref="canvasContainer"
@@ -52,20 +69,18 @@
     Line
   } from "fabric";
   import { useEventListener, onKeyStroke } from "@vueuse/core";
-  import ResizeFrame from "./ResizeFrame.vue";
   import Toolbox from "./Toolbox.vue";
   import useFile from "../composables/useFile";
   import CanvasHistory from "../services/canvasHistory";
 
   const canvasEl = useTemplateRef("canvasEl");
   const fileInput = useTemplateRef("fileInput");
-  const canvasContainer = useTemplateRef("canvasContainer");
   const activeTool = ref("select");
+  const isCropping = ref(false);
+
   let canvas: FabricJSCanvas | null = null;
   let canvasHistory: CanvasHistory | null = null;
-
   let selectedImage: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents> | null = null;
-  const isCropping = ref(false);
   let cropRect: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents> | null = null;
 
   const brushColor = ref("#000000");
@@ -88,8 +103,8 @@
     canvasHistory?.undo();
   }
 
-  async function performRedo(): void {
-    canvasHistory?.redo();
+  async function performRedo(): Promise<void> {
+    await canvasHistory?.redo();
   }
 
   function updateBrushColor(color: string) {
@@ -103,11 +118,6 @@
     brushColor.value = color;
   }
 
-  function resizeCanvas(value: { width: number; height: number }) {
-    if (canvas) {
-      canvas.setDimensions({ width: value.width, height: value.height });
-    }
-  }
 
   function removeCanvasObjects(
     objects: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents>[]
@@ -238,6 +248,8 @@
 
   onMounted(async () => {
     await nextTick();
+    if (!canvasEl.value) return;
+
     const containerWidth = window.innerWidth;
     const containerHeight = window.innerHeight;
 
@@ -248,14 +260,6 @@
       isDrawingMode: false
     });
 
-    // Add resize listener
-    window.addEventListener("resize", () => {
-      canvas.setDimensions({
-        width: window.innerWidth,
-        height: window.innerHeight
-      });
-      canvas.renderAll();
-    });
 
     if (canvas) {
       canvasHistory = new CanvasHistory(canvas);

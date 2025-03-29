@@ -1,10 +1,6 @@
 <template>
   <header>
-    <h1>Sensanaty's Vue 3, TypeScript and Vite template</h1>
-    <nav>
-      <RouterLink to="/example">Example</RouterLink>
-      <RouterLink to="/">Home</RouterLink>
-    </nav>
+    <h1 />
   </header>
 </template>
 

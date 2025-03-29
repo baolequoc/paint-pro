@@ -2,6 +2,7 @@
 import { cloneDeep } from "lodash";
 import { Canvas as FabricJSCanvas } from "fabric";
 
+// "custom:added" is a custom event that is fired when an object is added to the canvas
 export default class CanvasHistory {
   private canvas: FabricJSCanvas;
 
@@ -24,7 +25,6 @@ export default class CanvasHistory {
     const snapshot = cloneDeep(this.canvas.toJSON());
     const last = this.history[this.history.length - 1];
 
-    // Avoid saving identical states (optional but recommended)
     if (JSON.stringify(snapshot) === JSON.stringify(last)) return;
 
     this.history.push(snapshot);

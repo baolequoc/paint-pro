@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory, Router, RouteRecordRaw } from "vue-router";
 
 import Index from "@/pages/Index.vue";
-import Example from "@/pages/Example.vue";
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -9,12 +8,6 @@ const routes: Array<RouteRecordRaw> = [
     path: "/",
     name: "index"
   },
-  {
-    component: Example,
-    path: "/example",
-    name: "example",
-    meta: { title: "Examples" }
-  }
 ];
 
 const router: Router = createRouter({
@@ -23,7 +16,7 @@ const router: Router = createRouter({
 });
 
 router.afterEach((to) => {
-  const baseTitle = "Vue + TypeScript + Vite";
+  const baseTitle = "Paint App";
 
   if (to.name === "index") {
     document.title = baseTitle;
