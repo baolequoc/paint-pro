@@ -5,6 +5,8 @@
 /dist-ssr
 /tmp
 /out-tsc
+/release
+/dist-electron
 
 # dependencies
 /node_modules
