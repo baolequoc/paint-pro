@@ -482,6 +482,3 @@
   }
 </script>
 
-<style scoped>
-  /* Remove all CSS since we're using Tailwind classes now */
-</style>
