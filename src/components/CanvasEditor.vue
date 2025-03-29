@@ -400,12 +400,39 @@
     event.target.value = "";
   }
 
-  function exportCanvas() {
+  async function exportToClipboard() {
+    if (!canvas) return;
+    const dataURL = canvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
+    try {
+      const response = await fetch(dataURL);
+      const blob = await response.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [blob.type]: blob
+        })
+      ]);
+      alert('Image copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+      alert('Failed to copy to clipboard');
+    }
+  }
+
+  function exportToPNG() {
+    if (!canvas) return;
     const dataURL = canvas.toDataURL({ format: "png", quality: 1.0, multiplier: 1 });
     const link = document.createElement("a");
     link.download = "canvas-export.png";
     link.href = dataURL;
     link.click();
+  }
+
+  function exportCanvas(type: 'clipboard' | 'png') {
+    if (type === 'clipboard') {
+      exportToClipboard();
+    } else {
+      exportToPNG();
+    }
   }
 
   function clearCanvas() {

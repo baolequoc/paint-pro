@@ -85,9 +85,17 @@
     <div class="tool-group actions">
       <button
         class="btn-export"
-        @click="$emit('export')"
+        title="Download as PNG"
+        @click="$emit('export', 'png')"
       >
         <i class="fas fa-download" />
+      </button>
+      <button
+        class="btn-export"
+        title="Copy to Clipboard"
+        @click="$emit('export', 'clipboard')"
+      >
+        <i class="fas fa-copy" />
       </button>
       <button
         class="btn-clear"
