@@ -62,6 +62,7 @@
   import useCanvas from "../composables/useCanvas";
   import useKeyboard from "../composables/useKeyboard";
   import useCrop from "../composables/useCrop";
+  import useZoom from "../composables/useZoom";
   import CanvasHistory from "../services/canvasHistory";
 
   const canvasEl = useTemplateRef("canvasEl");
@@ -326,39 +327,23 @@
       isDrawingMode: false
     });
 
-
     if (canvas) {
       canvasHistory = new CanvasHistory(canvas);
       canvasHistory.init();
     }
 
-    canvas.on('mouse:wheel', function(opt: any) {
-      if (!canvas) return;
-      const delta = opt.e.deltaY;
-      const pointer = canvas.getPointer(opt.e);
-      let zoom = canvas.getZoom();
-      zoom *= 0.999 ** delta;
-      if (zoom > 20) zoom = 20;
-      if (zoom < 0.01) zoom = 0.01;
-
-      // Get the point in canvas coordinates before zoom
-      const x = pointer.x;
-      const y = pointer.y;
-
-      // Set zoom while maintaining the point position
-      canvas.zoomToPoint({ x, y }, zoom);
-
-      opt.e.preventDefault();
-      opt.e.stopPropagation();
-    })
+    // Initialize zoom functionality
+    const { setupZoom } = useZoom(computedCanvas);
+    setupZoom();
 
     canvasEl.value.focus();
     canvas.renderAll();
   });
 
   onUnmounted(() => {
-    canvas?.off('mouse:wheel');
-  })
+    const { cleanupZoom } = useZoom(computedCanvas);
+    cleanupZoom();
+  });
 
   const tools = {
     select: () => {
