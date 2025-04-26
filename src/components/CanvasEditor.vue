@@ -313,7 +313,6 @@
     if (!isDrawingArrow.value || !arrowStartPoint || !canvas || !arrowLine || !arrowHead) return;
 
     const pointer = canvas.getPointer(o.e);
-    const angle = Math.atan2(pointer.y - arrowStartPoint.y, pointer.x - arrowStartPoint.x);
 
     arrowLine.set({
       selectable: true,
@@ -323,7 +322,6 @@
     arrowHead.set({
       selectable: true,
       evented: true,
-      angle: (angle * 180) / Math.PI // Convert to degrees
     });
 
     const arrowGroup = new Group([arrowLine, arrowHead]);
