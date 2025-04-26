@@ -50,7 +50,9 @@
     FabricObjectProps,
     ObjectEvents,
     SerializedObjectProps,
-    Line
+    Line,
+    Polygon,
+    Group
   } from "fabric";
   import { useEventListener, onKeyStroke } from "@vueuse/core";
   import Toolbox from "./Toolbox.vue";
@@ -190,10 +192,16 @@
   useEventListener("paste", handlePaste);
   useEventListener("keydown", handleKeyDown);
 
-  // Add these new variables and functions for line drawing
+  // Line drawing state
   const isDrawingLine = ref(false);
-  let lineStartPoint: any = null;
-  let currentLine: any = null;
+  let lineStartPoint: { x: number; y: number } | null = null;
+  let currentLine: Line | null = null;
+
+  // Arrow drawing state
+  const isDrawingArrow = ref(false);
+  let arrowStartPoint: { x: number; y: number } | null = null;
+  let arrowLine: Line | null = null;
+  let arrowHead: Polygon | null = null;
 
   function startDrawingLine(o: any) {
     if (!canvas) return;
@@ -213,7 +221,7 @@
   }
 
   function drawLine(o: any) {
-    if (!isDrawingLine.value || !lineStartPoint || !canvas) return;
+    if (!isDrawingLine.value || !lineStartPoint || !canvas || !currentLine) return;
 
     const pointer = canvas.getPointer(o.e);
 
@@ -241,6 +249,96 @@
     // Reset the line drawing state
     lineStartPoint = null;
     currentLine = null;
+    setTool("select");
+  }
+
+  function startDrawingArrow(o: any) {
+    if (!canvas) return;
+    canvas.isDrawingMode = true;
+    const pointer = canvas.getPointer(o.e);
+    arrowStartPoint = { x: pointer.x, y: pointer.y };
+
+    arrowLine = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
+      stroke: brushColor.value,
+      strokeWidth: strokeWidth.value,
+      selectable: true,
+      evented: true
+    });
+
+    canvas.add(arrowLine);
+    canvas.requestRenderAll();
+  }
+
+  function drawArrow(o: any) {
+    if (!isDrawingArrow.value || !arrowStartPoint || !canvas || !arrowLine) return;
+
+    const pointer = canvas.getPointer(o.e);
+
+    // Update line end point
+    arrowLine.set({
+      x2: pointer.x,
+      y2: pointer.y
+    });
+
+    if (!arrowHead) {
+      // Create arrow head at the end of the line
+      arrowHead = new Polygon([
+        { x: 0, y: 0 },
+        { x: -10, y: -5 },
+        { x: -10, y: 5 }
+      ], {
+        stroke: brushColor.value,
+        strokeWidth: strokeWidth.value,
+        fill: brushColor.value,
+        originX: 'center',
+        originY: 'center'
+      });
+      canvas.add(arrowHead);
+    }
+
+    // Calculate angle between start and end points
+    const angle = Math.atan2(pointer.y - arrowStartPoint.y, pointer.x - arrowStartPoint.x);
+    
+    // Position arrow head at the end of the line
+    arrowHead.set({
+      left: pointer.x,
+      top: pointer.y,
+      angle: (angle * 180) / Math.PI // Convert to degrees
+    });
+
+    canvas.requestRenderAll();
+  }
+
+  function finishDrawingArrow(o: any) {
+    if (!isDrawingArrow.value || !arrowStartPoint || !canvas || !arrowLine || !arrowHead) return;
+
+    const pointer = canvas.getPointer(o.e);
+    const angle = Math.atan2(pointer.y - arrowStartPoint.y, pointer.x - arrowStartPoint.x);
+
+    arrowLine.set({
+      selectable: true,
+      evented: true,
+    });
+
+    arrowHead.set({
+      selectable: true,
+      evented: true,
+      angle: (angle * 180) / Math.PI // Convert to degrees
+    });
+
+    const arrowGroup = new Group([arrowLine, arrowHead]);
+    canvas.add(arrowGroup);
+    canvas.remove(arrowLine);
+    canvas.remove(arrowHead);
+    canvas.setActiveObject(arrowGroup);
+
+    canvas.requestRenderAll();
+    canvasHistory?.triggerSave();
+
+    // Reset the arrow drawing state
+    arrowStartPoint = null;
+    arrowLine = null;
+    arrowHead = null;
     setTool("select");
   }
 
@@ -303,6 +401,13 @@
         canvas.off("mouse:up", finishDrawingLine);
         isDrawingLine.value = false;
       }
+      // Remove arrow drawing event listeners if they exist
+      if (isDrawingArrow.value) {
+        canvas.off("mouse:down", startDrawingArrow);
+        canvas.off("mouse:move", drawArrow);
+        canvas.off("mouse:up", finishDrawingArrow);
+        isDrawingArrow.value = false;
+      }
     },
     brush: () => {
       if (!canvas) return;
@@ -355,6 +460,15 @@
       canvas.on("mouse:down", startDrawingLine);
       canvas.on("mouse:move", drawLine);
       canvas.on("mouse:up", finishDrawingLine);
+    },
+    arrow: () => {
+      if (!canvas) return;
+      canvas.isDrawingMode = true;
+      canvas.freeDrawingBrush = undefined;
+      isDrawingArrow.value = true;
+      canvas.on("mouse:down", startDrawingArrow);
+      canvas.on("mouse:move", drawArrow);
+      canvas.on("mouse:up", finishDrawingArrow);
     }
   };
 

@@ -19,6 +19,12 @@
         tooltip="Line Tool"
         @click="setTool('line')"
       />
+      <IconButton
+        icon-class="fas fa-arrow-right"
+        :active="activeTool === 'arrow'"
+        tooltip="Arrow Tool"
+        @click="setTool('arrow')"
+      />
       <input
         v-if="activeTool === 'line'"
         :model-value="brushColor"
