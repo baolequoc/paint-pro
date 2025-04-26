@@ -110,12 +110,14 @@
   function removeCanvasObjects(
     objects: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents>[]
   ) {
+    if (!canvas) return;
     objects.forEach((obj) => {
       canvas.remove(obj);
     });
   }
 
   function addObjectAndSetActive(obj: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents>) {
+    if (!canvas) return;
     canvas.add(obj);
     canvas.setActiveObject(obj);
     canvas.requestRenderAll();
@@ -123,6 +125,8 @@
   }
 
   async function handlePaste(e: ClipboardEvent) {
+    if (!canvas) return;
+
     const items = e.clipboardData?.items;
     if (!items) return;
 
@@ -135,6 +139,7 @@
     imageDataUrls
       .filter((data) => data !== null)
       .forEach(async ({ dataURL }) => {
+        if(!canvas) return;
         const img = await FabricImage.fromURL(dataURL as string, { crossOrigin: "anonymous" });
         const scale = Math.min(canvas.width / img.width!, canvas.height / img.height!, 1);
         img.scale(scale);
@@ -148,6 +153,7 @@
   const strokeWidth = ref(2);
 
   function updateShapeColor(color: string) {
+    if (!canvas) return;
     const activeObj = canvas.getActiveObject();
     if (activeObj) {
       shapeColor.value = color;
@@ -157,6 +163,7 @@
   }
 
   function handleKeyDown(e: KeyboardEvent): void {
+    if (!canvas) return;
     if (["Delete", "Backspace"].includes(e.key)) {
       const activeObj = canvas.getActiveObject();
 
@@ -185,10 +192,11 @@
 
   // Add these new variables and functions for line drawing
   const isDrawingLine = ref(false);
-  let lineStartPoint = null;
-  let currentLine = null;
+  let lineStartPoint: any = null;
+  let currentLine: any = null;
 
-  function startDrawingLine(o) {
+  function startDrawingLine(o: any) {
+    if (!canvas) return;
     canvas.isDrawingMode = true;
     const pointer = canvas.getPointer(o.e);
     lineStartPoint = { x: pointer.x, y: pointer.y };
@@ -204,8 +212,8 @@
     canvas.requestRenderAll();
   }
 
-  function drawLine(o) {
-    if (!isDrawingLine.value || !lineStartPoint) return;
+  function drawLine(o: any) {
+    if (!isDrawingLine.value || !lineStartPoint || !canvas) return;
 
     const pointer = canvas.getPointer(o.e);
 
@@ -219,7 +227,7 @@
   }
 
   function finishDrawingLine() {
-    if (!isDrawingLine.value || !currentLine) return;
+    if (!isDrawingLine.value || !currentLine || !canvas) return;
 
     // Make the line selectable and save to history
     currentLine.set({
@@ -256,7 +264,8 @@
       canvasHistory.init();
     }
 
-    canvas.on('mouse:wheel', function(opt) {
+    canvas.on('mouse:wheel', function(opt: any) {
+      if (!canvas) return;
       const delta = opt.e.deltaY;
       const pointer = canvas.getPointer(opt.e);
       let zoom = canvas.getZoom();
@@ -285,6 +294,7 @@
 
   const tools = {
     select: () => {
+      if (!canvas) return;
       canvas.isDrawingMode = false;
       // Remove line drawing event listeners if they exist
       if (isDrawingLine.value) {
@@ -295,6 +305,7 @@
       }
     },
     brush: () => {
+      if (!canvas) return;
       canvas.isDrawingMode = true;
       canvas.freeDrawingBrush = new PencilBrush(canvas);
       canvas.freeDrawingBrush.width = 5;
@@ -302,7 +313,8 @@
       // Monkey patch onMouseUp
       const originalOnMouseUp = canvas.freeDrawingBrush.onMouseUp;
 
-      canvas.freeDrawingBrush.onMouseUp = function (...args) {
+      canvas.freeDrawingBrush.onMouseUp = function (...args: any) {
+        if (!canvas) return;
         const result = originalOnMouseUp.apply(this, args);
         // Now the path is fully added to canvas
         canvas.requestRenderAll(); // optional
@@ -311,6 +323,7 @@
       };
     },
     rectangle: () => {
+      if (!canvas) return;
       canvas.isDrawingMode = false;
       const rect = new Rect({
         left: 100,
@@ -324,6 +337,7 @@
       addObjectAndSetActive(rect);
     },
     text: () => {
+      if (!canvas) return;
       canvas.isDrawingMode = false;
       const text = new IText("Edit me", {
         left: 100,
@@ -334,6 +348,7 @@
       setTool("select");
     },
     line: () => {
+      if (!canvas) return;
       canvas.isDrawingMode = true;
       canvas.freeDrawingBrush = undefined;
       isDrawingLine.value = true;
@@ -343,7 +358,7 @@
     }
   };
 
-  function setTool(toolName) {
+  function setTool(toolName: string) {
     activeTool.value = toolName;
     if (tools[toolName]) {
       tools[toolName]();
@@ -351,6 +366,7 @@
   }
 
   function triggerImageUpload() {
+    if (!canvas) return;
     const activeObj = canvas.getActiveObject();
     if (activeObj && activeObj.type === "image") {
       selectedImage = activeObj;
@@ -366,11 +382,12 @@
   }
 
   async function handleFileUpload(event: any) {
+    if (!canvas || !canvasEl.value || !fileInput.value || !event) return;
     const file = event.target.files[0];
     if (!file) return;
 
     const dataURL = await readFileAsDataURL(file);
-    const img = await FabricImage.fromURL(dataURL, { crossOrigin: "anonymous" });
+    const img = await FabricImage.fromURL(dataURL as string, { crossOrigin: "anonymous" });
 
     const scale = Math.min(canvas.width / img.width, canvas.height / img.height, 1);
     img.scale(scale);
@@ -431,7 +448,7 @@
     const { newImg, position } = result;
     newImg.left = position.left;
     newImg.top = position.top;
- 
+
     removeCanvasObjects([selectedImage, cropRect]);
     cropRect = null;
     selectedImage = null;
@@ -445,6 +462,7 @@
   }
 
   function clearCanvas() {
+    if (!canvas) return;
     isClearingCanvas.value = true;
     canvas.clear();
     canvas.backgroundColor = "#ffffff";
