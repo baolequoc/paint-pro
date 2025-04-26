@@ -12,7 +12,7 @@
       @trigger-image-upload="triggerImageUpload"
       @trigger-new-image-upload="triggerNewImageUpload"
       @start-crop="startCrop"
-      @apply-crop="applyCrop"
+      @apply-crop="applyCropToCanvas"
       @export="exportCanvas"
       @clear="clearCanvas"
     />
@@ -56,6 +56,7 @@
   import { useEventListener, onKeyStroke } from "@vueuse/core";
   import Toolbox from "./Toolbox.vue";
   import useFile from "../composables/useFile";
+  import useImageCrop from "../composables/useImageCrop";
   import CanvasHistory from "../services/canvasHistory";
 
   const canvasEl = useTemplateRef("canvasEl");
@@ -70,6 +71,7 @@
 
   const brushColor = ref("#000000");
   const { getDataFromFile } = useFile();
+  const { applyCrop } = useImageCrop();
   const isClearingCanvas = ref(false);
 
   onKeyStroke("z", (e) => {
@@ -476,7 +478,7 @@
 
   // 📸 Start cropping
   function startCrop() {
-    const active = canvas.getActiveObject();
+    const active = canvas?.getActiveObject();
     if (!active || active.type !== "image") {
       alert("Please select an image to crop.");
       return;
@@ -498,41 +500,24 @@
       transparentCorners: false
     });
 
-    canvas.add(cropRect);
-    canvas.setActiveObject(cropRect);
-    canvas.bringObjectToFront(cropRect);
-    canvas.requestRenderAll();
+    canvas?.add(cropRect);
+    canvas?.setActiveObject(cropRect);
+    canvas?.bringObjectToFront(cropRect);
+    canvas?.requestRenderAll();
   }
 
   // ✂️ Apply actual image crop (flattened)
-  async function applyCrop() {
-    if (!selectedImage || !cropRect) return;
+  async function applyCropToCanvas() {
+    if (!selectedImage || !cropRect || !canvas) return;
 
-    const rect = cropRect.getBoundingRect();
-    const img = selectedImage;
+    const result = await applyCrop({ selectedImage, cropRect });
+    if (!result) return;
 
-    const scaleX = img.scaleX;
-    const scaleY = img.scaleY;
-
-    const cropX = (rect.left - img.left) / scaleX;
-    const cropY = (rect.top - img.top) / scaleY;
-    const cropWidth = rect.width / scaleX;
-    const cropHeight = rect.height / scaleY;
-
-    // Create temp canvas to draw cropped image
-    const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = cropWidth;
-    tempCanvas.height = cropHeight;
-    const ctx = tempCanvas.getContext("2d");
-
-    const source = img._element;
-    ctx.drawImage(source, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-
-    const croppedDataUrl = tempCanvas.toDataURL();
-    const newImg = await FabricImage.fromURL(croppedDataUrl, { crossOrigin: "anonymous" });
-    newImg.left = img.left + (rect.left - img.left);
-    newImg.top = img.top + (rect.top - img.top);
-    removeCanvasObjects([img, cropRect]);
+    const { newImg, position } = result;
+    newImg.left = position.left;
+    newImg.top = position.top;
+ 
+    removeCanvasObjects([selectedImage, cropRect]);
     cropRect = null;
     selectedImage = null;
     isCropping.value = false;

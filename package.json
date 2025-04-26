@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "electron:dev": "cross-env NODE_ENV=development vite",
     "electron:build": "vite build && electron-builder",
+    "electron:build:linux": "vite build && electron-builder --linux",
     "electron:preview": "electron .",
     "format": "prettier --write ./src",
     "lint": "eslint ./src --ext .vue,.js,.ts",
@@ -71,6 +72,11 @@
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "linux": {
+      "target": ["AppImage", "deb", "rpm"],
+      "category": "Graphics",
+      "icon": "build/icon.png"
     },
     "dmg": {
       "sign": false
