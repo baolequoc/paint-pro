@@ -39,7 +39,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, nextTick, useTemplateRef, onUnmounted } from "vue";
+  import { ref, onMounted, nextTick, useTemplateRef, onUnmounted, computed } from "vue";
   import {
     Canvas as FabricJSCanvas,
     Rect,
@@ -53,13 +53,13 @@
     Line,
     Polygon,
     Group,
-    ActiveSelection
   } from "fabric";
   import { useEventListener, onKeyStroke } from "@vueuse/core";
   import Toolbox from "./Toolbox.vue";
   import useFile from "../composables/useFile";
   import useImageCrop from "../composables/useImageCrop";
   import useExport from "../composables/useExport";
+  import useCanvas from "../composables/useCanvas";
   import CanvasHistory from "../services/canvasHistory";
 
   const canvasEl = useTemplateRef("canvasEl");
@@ -76,7 +76,24 @@
   const { getDataFromFile } = useFile();
   const { applyCrop } = useImageCrop();
   const { exportCanvas } = useExport();
-  const isClearingCanvas = ref(false);
+  const computedCanvas = computed(() => canvas);
+  const {
+    addObjectAndSetActive,
+    removeCanvasObjects,
+    clearCanvas,
+    selectAll
+  } = useCanvas(computedCanvas, canvasHistory);
+
+  function updateBrushColor(color: string) {
+    if (!canvas) return;
+    if (activeTool.value === "brush") {
+      if (!canvas.freeDrawingBrush) {
+        canvas.freeDrawingBrush = new PencilBrush(canvas);
+      }
+      canvas.freeDrawingBrush.color = color;
+    }
+    brushColor.value = color;
+  }
 
   onKeyStroke("z", (e) => {
     if (e.metaKey) {
@@ -96,35 +113,6 @@
 
   async function performRedo(): Promise<void> {
     await canvasHistory?.redo();
-  }
-
-  function updateBrushColor(color: string) {
-    if (!canvas) return;
-    if (activeTool.value === "brush") {
-      if (!canvas.freeDrawingBrush) {
-        canvas.freeDrawingBrush = new PencilBrush(canvas);
-      }
-      canvas.freeDrawingBrush.color = color;
-    }
-    brushColor.value = color;
-  }
-
-
-  function removeCanvasObjects(
-    objects: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents>[]
-  ) {
-    if (!canvas) return;
-    objects.forEach((obj) => {
-      canvas.remove(obj);
-    });
-  }
-
-  function addObjectAndSetActive(obj: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents>) {
-    if (!canvas) return;
-    canvas.add(obj);
-    canvas.setActiveObject(obj);
-    canvas.requestRenderAll();
-    canvasHistory?.triggerSave();
   }
 
   async function handlePaste(e: ClipboardEvent) {
@@ -171,13 +159,7 @@
     // Handle Ctrl+A / Cmd+A to select all
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
       e.preventDefault();
-      const objects = canvas.getObjects();
-      if (objects.length > 0) {
-        canvas.discardActiveObject();
-        const selection = new ActiveSelection(objects, { canvas });
-        canvas.setActiveObject(selection);
-        canvas.requestRenderAll();
-      }
+      selectAll();
       return;
     }
 
@@ -586,15 +568,6 @@
   function handleExport(type: 'clipboard' | 'png') {
     if (!canvas) return;
     exportCanvas(canvas, type);
-  }
-
-  function clearCanvas() {
-    if (!canvas) return;
-    isClearingCanvas.value = true;
-    canvas.clear();
-    canvas.backgroundColor = "#ffffff";
-    canvas.requestRenderAll();
-    isClearingCanvas.value = false;
   }
 </script>
 
