@@ -63,6 +63,7 @@
   import useKeyboard from "../composables/useKeyboard";
   import useCrop from "../composables/useCrop";
   import useZoom from "../composables/useZoom";
+  import useFileUpload from "../composables/useFileUpload";
   import CanvasHistory from "../services/canvasHistory";
 
   const canvasEl = useTemplateRef("canvasEl");
@@ -84,6 +85,17 @@
     selectAll
   } = useCanvas(computedCanvas, canvasHistory);
 
+  // Initialize crop functionality
+  const { isCropping, startCrop, applyCropToCanvas, selectedImage } = useCrop(computedCanvas);
+
+  // Initialize file upload functionality
+  const { handleFileUpload, handlePaste } = useFileUpload(
+    computedCanvas,
+    selectedImage,
+    addObjectAndSetActive,
+    removeCanvasObjects
+  );
+
   // Initialize keyboard handlers
   useKeyboard(computedCanvas, {
     onUndo: performUndo,
@@ -92,9 +104,6 @@
     onDelete: removeCanvasObjects,
     onPaste: handlePaste
   });
-
-  // Initialize crop functionality
-  const { isCropping, startCrop, applyCropToCanvas, selectedImage } = useCrop(computedCanvas);
 
   function updateBrushColor(color: string) {
     if (!canvas) return;
@@ -107,8 +116,6 @@
     brushColor.value = color;
   }
 
- 
-
   // Undo/Redo functions that load the snapshot into the canvas.
   async function performUndo() {
     canvasHistory?.undo();
@@ -116,31 +123,6 @@
 
   async function performRedo(): Promise<void> {
     await canvasHistory?.redo();
-  }
-
-  async function handlePaste(e: ClipboardEvent) {
-    if (!canvas) return;
-
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    const imagePromises = Array.from(items)
-      .filter((item) => item.type.startsWith("image"))
-      .map((item) => getDataFromFile(item.getAsFile()));
-
-    const imageDataUrls = await Promise.all(imagePromises);
-
-    imageDataUrls
-      .filter((data) => data !== null)
-      .forEach(async ({ dataURL }) => {
-        if(!canvas) return;
-        const img = await FabricImage.fromURL(dataURL as string, { crossOrigin: "anonymous" });
-        const scale = Math.min(canvas.width / img.width!, canvas.height / img.height!, 1);
-        img.scale(scale);
-        img.set({ left: 50, top: 50 });
-        // Add image to canvas
-        addObjectAndSetActive(img);
-      });
   }
 
   const shapeColor = ref("#000000");
@@ -154,15 +136,6 @@
       activeObj.set("fill", shapeColor.value);
       canvas.renderAll();
     }
-  }
-
-  function readFileAsDataURL(file: File) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target?.result);
-      reader.onerror = (err) => reject(err);
-      reader.readAsDataURL(file);
-    });
   }
 
   // Line drawing state
@@ -448,33 +421,6 @@
   function triggerNewImageUpload() {
     selectedImage.value = null;
     fileInput.value?.click();
-  }
-
-  async function handleFileUpload(event: any) {
-    if (!canvas || !canvasEl.value || !fileInput.value || !event) return;
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const dataURL = await readFileAsDataURL(file);
-    const img = await FabricImage.fromURL(dataURL as string, { crossOrigin: "anonymous" });
-
-    const scale = Math.min(canvas.width / img.width, canvas.height / img.height, 1);
-    img.scale(scale);
-    img.left = 50;
-    img.top = 50;
-
-    if (selectedImage.value) {
-      img.left = selectedImage.value.left;
-      img.top = selectedImage.value.top;
-      img.scaleX = selectedImage.value.scaleX;
-      img.scaleY = selectedImage.value.scaleY;
-      img.angle = selectedImage.value.angle;
-      removeCanvasObjects([selectedImage.value]);
-    }
-
-    addObjectAndSetActive(img);
-    selectedImage.value = img;
-    event.target.value = "";
   }
 
   function handleExport(type: 'clipboard' | 'png') {
