@@ -60,6 +60,7 @@
   import useImageCrop from "../composables/useImageCrop";
   import useExport from "../composables/useExport";
   import useCanvas from "../composables/useCanvas";
+  import useKeyboard from "../composables/useKeyboard";
   import CanvasHistory from "../services/canvasHistory";
 
   const canvasEl = useTemplateRef("canvasEl");
@@ -84,6 +85,15 @@
     selectAll
   } = useCanvas(computedCanvas, canvasHistory);
 
+  // Initialize keyboard handlers
+  useKeyboard(computedCanvas, {
+    onUndo: performUndo,
+    onRedo: performRedo,
+    onSelectAll: selectAll,
+    onDelete: removeCanvasObjects,
+    onPaste: handlePaste
+  });
+
   function updateBrushColor(color: string) {
     if (!canvas) return;
     if (activeTool.value === "brush") {
@@ -95,16 +105,7 @@
     brushColor.value = color;
   }
 
-  onKeyStroke("z", (e) => {
-    if (e.metaKey) {
-      e.preventDefault();
-      if (e.shiftKey) {
-        performRedo();
-      } else {
-        performUndo();
-      }
-    }
-  });
+ 
 
   // Undo/Redo functions that load the snapshot into the canvas.
   async function performUndo() {
@@ -153,30 +154,6 @@
     }
   }
 
-  function handleKeyDown(e: KeyboardEvent): void {
-    if (!canvas) return;
-
-    // Handle Ctrl+A / Cmd+A to select all
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
-      e.preventDefault();
-      selectAll();
-      return;
-    }
-
-    if (["Delete", "Backspace"].includes(e.key)) {
-      const activeObj = canvas.getActiveObject();
-
-      // If the active object is text and it's currently being edited,
-      // let the default text editing behavior happen.
-      if (activeObj && activeObj.type === "i-text" && (activeObj as IText).isEditing) {
-        return;
-      }
-      removeCanvasObjects(canvas.getActiveObjects());
-      canvas.discardActiveObject();
-      canvas.requestRenderAll();
-    }
-  }
-
   function readFileAsDataURL(file: File) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -185,9 +162,6 @@
       reader.readAsDataURL(file);
     });
   }
-
-  useEventListener("paste", handlePaste);
-  useEventListener("keydown", handleKeyDown);
 
   // Line drawing state
   const isDrawingLine = ref(false);
@@ -295,7 +269,7 @@
 
     // Calculate angle between start and end points
     const angle = Math.atan2(pointer.y - arrowStartPoint.y, pointer.x - arrowStartPoint.x);
-    
+
     // Position arrow head at the end of the line
     arrowHead.set({
       left: pointer.x,
@@ -570,4 +544,3 @@
     exportCanvas(canvas, type);
   }
 </script>
-
