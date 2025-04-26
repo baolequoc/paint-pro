@@ -9,7 +9,7 @@ export default function useTools(
   addObjectAndSetActive: (obj: any) => void
 ) {
   // Line drawing state
-  const isDrawingLine = ref(false); 
+  const isDrawingLine = ref(false);
   let lineStartPoint: { x: number; y: number } | null = null;
   let currentLine: Line | null = null;
 
@@ -64,6 +64,11 @@ export default function useTools(
     // Reset the line drawing state
     lineStartPoint = null;
     currentLine = null;
+    // Remove line drawing event listeners if they exist
+    canvasRef.value.off("mouse:down", startDrawingLine);
+    canvasRef.value.off("mouse:move", drawLine);
+    canvasRef.value.off("mouse:up", finishDrawingLine);
+    isDrawingLine.value = false;
   }
 
   function startDrawingArrow(o: any) {
@@ -148,6 +153,11 @@ export default function useTools(
     arrowStartPoint = null;
     arrowLine = null;
     arrowHead = null;
+
+    canvasRef.value.off("mouse:down", startDrawingArrow);
+    canvasRef.value.off("mouse:move", drawArrow);
+    canvasRef.value.off("mouse:up", finishDrawingArrow);
+    isDrawingArrow.value = false;
   }
 
   function setupBrush() {
@@ -187,20 +197,7 @@ export default function useTools(
   function selectTool() {
     if (!canvasRef.value) return;
     canvasRef.value.isDrawingMode = false;
-    // Remove line drawing event listeners if they exist
-    if (isDrawingLine.value) {
-      canvasRef.value.off("mouse:down", startDrawingLine);
-      canvasRef.value.off("mouse:move", drawLine);
-      canvasRef.value.off("mouse:up", finishDrawingLine);
-      isDrawingLine.value = false;
-    }
-    // Remove arrow drawing event listeners if they exist
-    if (isDrawingArrow.value) {
-      canvasRef.value.off("mouse:down", startDrawingArrow);
-      canvasRef.value.off("mouse:move", drawArrow);
-      canvasRef.value.off("mouse:up", finishDrawingArrow);
-      isDrawingArrow.value = false;
-    }
+
   }
 
   function setupLine() {
