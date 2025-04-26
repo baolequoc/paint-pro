@@ -6,7 +6,8 @@ export default function useFileUpload(
   canvasRef: Ref<FabricJSCanvas | null>,
   selectedImageRef: Ref<any>,
   addObjectAndSetActive: (obj: any) => void,
-  removeCanvasObjects: (objects: any[]) => void
+  removeCanvasObjects: (objects: any[]) => void,
+  fileInputRef: Ref<HTMLInputElement | null>
 ) {
   const { getDataFromFile } = useFile();
 
@@ -17,6 +18,22 @@ export default function useFileUpload(
       reader.onerror = (err) => reject(err);
       reader.readAsDataURL(file);
     });
+  }
+
+  function triggerImageUpload() {
+    if (!canvasRef.value) return;
+    const activeObj = canvasRef.value.getActiveObject();
+    if (activeObj && activeObj.type === "image") {
+      selectedImageRef.value = activeObj;
+    } else {
+      selectedImageRef.value = null;
+    }
+    fileInputRef.value?.click();
+  }
+
+  function triggerNewImageUpload() {
+    selectedImageRef.value = null;
+    fileInputRef.value?.click();
   }
 
   async function handleFileUpload(event: any) {
@@ -72,6 +89,8 @@ export default function useFileUpload(
 
   return {
     handleFileUpload,
-    handlePaste
+    handlePaste,
+    triggerImageUpload,
+    triggerNewImageUpload
   };
 } 

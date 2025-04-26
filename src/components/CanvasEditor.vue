@@ -89,11 +89,12 @@
   const { isCropping, startCrop, applyCropToCanvas, selectedImage } = useCrop(computedCanvas);
 
   // Initialize file upload functionality
-  const { handleFileUpload, handlePaste } = useFileUpload(
+  const { handleFileUpload, handlePaste, triggerImageUpload, triggerNewImageUpload } = useFileUpload(
     computedCanvas,
     selectedImage,
     addObjectAndSetActive,
-    removeCanvasObjects
+    removeCanvasObjects,
+    fileInput
   );
 
   // Initialize keyboard handlers
@@ -405,22 +406,6 @@
     if (tools[toolName]) {
       tools[toolName]();
     }
-  }
-
-  function triggerImageUpload() {
-    if (!canvas) return;
-    const activeObj = canvas.getActiveObject();
-    if (activeObj && activeObj.type === "image") {
-      selectedImage.value = activeObj;
-    } else {
-      selectedImage.value = null;
-    }
-    fileInput.value?.click();
-  }
-
-  function triggerNewImageUpload() {
-    selectedImage.value = null;
-    fileInput.value?.click();
   }
 
   function handleExport(type: 'clipboard' | 'png') {
