@@ -19,6 +19,10 @@ export default function useTools(
   let arrowLine: Line | null = null;
   let arrowHead: Polygon | null = null;
 
+  // Rectangle drawing state
+  let rectStartPoint: { x: number; y: number } | null = null;
+  let currentRect: Rect | null = null;
+
   function startDrawingLine(o: any) {
     if (!canvasRef.value) return;
     canvasRef.value.isDrawingMode = true;
@@ -171,16 +175,71 @@ export default function useTools(
   function createRectangle() {
     if (!canvasRef.value) return;
     canvasRef.value.isDrawingMode = false;
-    const rect = new Rect({
-      left: 100,
-      top: 100,
-      width: 100,
-      height: 100,
+    canvasRef.value.freeDrawingBrush = undefined;
+
+    // Add event listeners for rectangle drawing
+    canvasRef.value.on("mouse:down", startDrawingRectangle);
+    canvasRef.value.on("mouse:move", drawRectangle);
+    canvasRef.value.on("mouse:up", finishDrawingRectangle);
+  }
+
+  function startDrawingRectangle(o: any) {
+    if (!canvasRef.value) return;
+    const pointer = canvasRef.value.getPointer(o.e);
+    rectStartPoint = { x: pointer.x, y: pointer.y };
+
+    currentRect = new Rect({
+      left: pointer.x,
+      top: pointer.y,
+      width: 0,
+      height: 0,
       fill: "transparent",
-      stroke: "black",
-      strokeWidth: 2
+      stroke: brushColor.value,
+      strokeWidth: strokeWidth.value,
+      selectable: false,
+      evented: false
     });
-    addObjectAndSetActive(rect);
+
+    canvasRef.value.add(currentRect);
+    canvasRef.value.requestRenderAll();
+  }
+
+  function drawRectangle(o: any) {
+    if (!rectStartPoint || !currentRect || !canvasRef.value) return;
+
+    const pointer = canvasRef.value.getPointer(o.e);
+    const width = pointer.x - rectStartPoint.x;
+    const height = pointer.y - rectStartPoint.y;
+
+    currentRect.set({
+      width: Math.abs(width),
+      height: Math.abs(height),
+      left: width < 0 ? pointer.x : rectStartPoint.x,
+      top: height < 0 ? pointer.y : rectStartPoint.y
+    });
+
+    canvasRef.value.requestRenderAll();
+  }
+
+  function finishDrawingRectangle() {
+    if (!currentRect || !canvasRef.value) return;
+
+    // Make the rectangle selectable and add to history
+    currentRect.set({
+      selectable: true,
+      evented: true
+    });
+
+    canvasRef.value.requestRenderAll();
+
+    // Reset rectangle drawing state
+    rectStartPoint = null;
+    currentRect = null;
+
+    // Remove event listeners
+    canvasRef.value.off("mouse:down", startDrawingRectangle);
+    canvasRef.value.off("mouse:move", drawRectangle);
+    canvasRef.value.off("mouse:up", finishDrawingRectangle);
   }
 
   function createText() {
@@ -197,7 +256,7 @@ export default function useTools(
   function selectTool() {
     if (!canvasRef.value) return;
     canvasRef.value.isDrawingMode = false;
-
+    canvasRef.value.freeDrawingBrush = undefined;
   }
 
   function setupLine() {
