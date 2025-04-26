@@ -61,17 +61,15 @@
   import useExport from "../composables/useExport";
   import useCanvas from "../composables/useCanvas";
   import useKeyboard from "../composables/useKeyboard";
+  import useCrop from "../composables/useCrop";
   import CanvasHistory from "../services/canvasHistory";
 
   const canvasEl = useTemplateRef("canvasEl");
   const fileInput = useTemplateRef("fileInput");
   const activeTool = ref("select");
-  const isCropping = ref(false);
 
   let canvas: FabricJSCanvas | null = null;
   let canvasHistory: CanvasHistory | null = null;
-  let selectedImage: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents> | null = null;
-  let cropRect: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents> | null = null;
 
   const brushColor = ref("#000000");
   const { getDataFromFile } = useFile();
@@ -93,6 +91,9 @@
     onDelete: removeCanvasObjects,
     onPaste: handlePaste
   });
+
+  // Initialize crop functionality
+  const { isCropping, startCrop, applyCropToCanvas, selectedImage } = useCrop(computedCanvas);
 
   function updateBrushColor(color: string) {
     if (!canvas) return;
@@ -452,15 +453,15 @@
     if (!canvas) return;
     const activeObj = canvas.getActiveObject();
     if (activeObj && activeObj.type === "image") {
-      selectedImage = activeObj;
+      selectedImage.value = activeObj;
     } else {
-      selectedImage = null;
+      selectedImage.value = null;
     }
     fileInput.value?.click();
   }
 
   function triggerNewImageUpload() {
-    selectedImage = null;
+    selectedImage.value = null;
     fileInput.value?.click();
   }
 
@@ -477,66 +478,18 @@
     img.left = 50;
     img.top = 50;
 
-    if (selectedImage) {
-      img.left = selectedImage.left;
-      img.top = selectedImage.top;
-      img.scaleX = selectedImage.scaleX;
-      img.scaleY = selectedImage.scaleY;
-      img.angle = selectedImage.angle;
-      removeCanvasObjects([selectedImage]);
+    if (selectedImage.value) {
+      img.left = selectedImage.value.left;
+      img.top = selectedImage.value.top;
+      img.scaleX = selectedImage.value.scaleX;
+      img.scaleY = selectedImage.value.scaleY;
+      img.angle = selectedImage.value.angle;
+      removeCanvasObjects([selectedImage.value]);
     }
 
     addObjectAndSetActive(img);
-    selectedImage = img;
+    selectedImage.value = img;
     event.target.value = "";
-  }
-
-  // 📸 Start cropping
-  function startCrop() {
-    const active = canvas?.getActiveObject();
-    if (!active || active.type !== "image") {
-      alert("Please select an image to crop.");
-      return;
-    }
-
-    isCropping.value = true;
-    selectedImage = active;
-
-    cropRect = new Rect({
-      left: active.left + 20,
-      top: active.top + 20,
-      width: 100,
-      height: 100,
-      fill: "rgba(0, 123, 255, 0.2)",
-      stroke: "#0056b3",
-      strokeWidth: 2,
-      hasRotatingPoint: false,
-      cornerStyle: "circle",
-      transparentCorners: false
-    });
-
-    canvas?.add(cropRect);
-    canvas?.setActiveObject(cropRect);
-    canvas?.bringObjectToFront(cropRect);
-    canvas?.requestRenderAll();
-  }
-
-  // ✂️ Apply actual image crop (flattened)
-  async function applyCropToCanvas() {
-    if (!selectedImage || !cropRect || !canvas) return;
-
-    const result = await applyCrop({ selectedImage, cropRect });
-    if (!result) return;
-
-    const { newImg, position } = result;
-    newImg.left = position.left;
-    newImg.top = position.top;
-
-    removeCanvasObjects([selectedImage, cropRect]);
-    cropRect = null;
-    selectedImage = null;
-    isCropping.value = false;
-    addObjectAndSetActive(newImg);
   }
 
   function handleExport(type: 'clipboard' | 'png') {
