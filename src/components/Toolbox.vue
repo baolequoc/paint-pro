@@ -2,6 +2,12 @@
   <div class="toolbar">
     <div class="tool-group">
       <IconButton
+        icon-class="fas fa-hand-pointer"
+        :active="activeTool === 'hand'"
+        tooltip="Hand Tool"
+        @click="setTool('hand')"
+      />
+      <IconButton
         icon-class="fas fa-mouse-pointer"
         :active="activeTool === 'select'"
         tooltip="Select Tool"

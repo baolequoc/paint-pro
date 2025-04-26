@@ -19,13 +19,19 @@
 
     <div
       ref="canvasContainer"
-      class="absolute top-0 left-0 w-screen h-screen bg-white shadow-md"
+      class="absolute top-0 left-0 w-screen h-screen bg-white shadow-md overflow-auto"
     >
-      <canvas
-        ref="canvasEl"
-        tabindex="0"
-        class="block w-full h-full outline-none"
-      />
+      <div
+        class="canvas-wrapper"
+        style="min-width: 3000px; min-height: 3000px; position: relative;"
+      >
+        <canvas
+          ref="canvasEl"
+          tabindex="0"
+          class="block absolute top-0 left-0"
+          style="width: 3000px; height: 3000px;"
+        />
+      </div>
       <!-- Upload image -->
       <input
         ref="fileInput"
@@ -42,22 +48,9 @@
   import { ref, onMounted, nextTick, useTemplateRef, onUnmounted, computed } from "vue";
   import {
     Canvas as FabricJSCanvas,
-    Rect,
-    IText,
     PencilBrush,
-    FabricImage,
-    FabricObject,
-    FabricObjectProps,
-    ObjectEvents,
-    SerializedObjectProps,
-    Line,
-    Polygon,
-    Group,
   } from "fabric";
-  import { useEventListener, onKeyStroke } from "@vueuse/core";
   import Toolbox from "./Toolbox.vue";
-  import useFile from "../composables/useFile";
-  import useImageCrop from "../composables/useImageCrop";
   import useExport from "../composables/useExport";
   import useCanvas from "../composables/useCanvas";
   import useKeyboard from "../composables/useKeyboard";
@@ -77,6 +70,7 @@
 
   const { exportCanvas } = useExport();
   const computedCanvas = computed(() => canvas);
+
   const {
     addObjectAndSetActive,
     removeCanvasObjects,
@@ -88,7 +82,12 @@
   const { isCropping, startCrop, applyCropToCanvas, selectedImage } = useCrop(computedCanvas);
 
   // Initialize file upload functionality
-  const { handleFileUpload, handlePaste, triggerImageUpload, triggerNewImageUpload } = useFileUpload(
+  const {
+    handleFileUpload,
+    handlePaste,
+    triggerImageUpload,
+    triggerNewImageUpload,
+  } = useFileUpload(
     computedCanvas,
     selectedImage,
     addObjectAndSetActive,
@@ -131,7 +130,7 @@
   }
 
   // Initialize tools
-  const { isDrawingLine, isDrawingArrow, setTool, tools } = useTools(
+  const { setTool  } = useTools(
     computedCanvas,
     activeTool,
     brushColor,
@@ -143,19 +142,29 @@
     await nextTick();
     if (!canvasEl.value) return;
 
-    const containerWidth = window.innerWidth;
-    const containerHeight = window.innerHeight;
+    // Set a large initial canvas size
+    const initialWidth = 3000;
+    const initialHeight = 3000;
 
     canvas = new FabricJSCanvas(canvasEl.value, {
-      width: containerWidth,
-      height: containerHeight,
-      backgroundColor: "#ffffff", // White background
-      isDrawingMode: false
+      width: initialWidth,
+      height: initialHeight,
+      backgroundColor: "#ffffff",
+      isDrawingMode: false,
+      selection: true,
+      preserveObjectStacking: true
     });
 
     if (canvas) {
       canvasHistory = new CanvasHistory(canvas);
       canvasHistory.init();
+
+      // Center the canvas view
+      const container = canvasEl.value.parentElement;
+      if (container) {
+        container.scrollLeft = (initialWidth - window.innerWidth) / 2;
+        container.scrollTop = (initialHeight - window.innerHeight) / 2;
+      }
     }
 
     // Initialize zoom functionality
