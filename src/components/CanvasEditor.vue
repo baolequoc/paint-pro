@@ -52,7 +52,8 @@
     SerializedObjectProps,
     Line,
     Polygon,
-    Group
+    Group,
+    ActiveSelection
   } from "fabric";
   import { useEventListener, onKeyStroke } from "@vueuse/core";
   import Toolbox from "./Toolbox.vue";
@@ -166,6 +167,20 @@
 
   function handleKeyDown(e: KeyboardEvent): void {
     if (!canvas) return;
+
+    // Handle Ctrl+A / Cmd+A to select all
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      const objects = canvas.getObjects();
+      if (objects.length > 0) {
+        canvas.discardActiveObject();
+        const selection = new ActiveSelection(objects, { canvas });
+        canvas.setActiveObject(selection);
+        canvas.requestRenderAll();
+      }
+      return;
+    }
+
     if (["Delete", "Backspace"].includes(e.key)) {
       const activeObj = canvas.getActiveObject();
 
