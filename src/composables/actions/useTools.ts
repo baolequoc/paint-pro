@@ -117,6 +117,7 @@ export default function useTools(
     canvasRef.value.off("mouse:move", drawLine);
     canvasRef.value.off("mouse:up", finishDrawingLine);
     isDrawingLine.value = false;
+    setTool('select');
   }
 
   function startDrawingArrow(o: any) {
@@ -206,14 +207,15 @@ export default function useTools(
     canvasRef.value.off("mouse:move", drawArrow);
     canvasRef.value.off("mouse:up", finishDrawingArrow);
     isDrawingArrow.value = false;
+    setTool('select');
   }
 
   function setupPan() {
     if (!canvasRef.value) return;
-    // cleanupCurrentTool();
+    cleanupCurrentTool();
     const { setupPan, cleanupPan } = usePan(canvasRef);
     setupPan();
-    // panCleanup = cleanupPan;
+    panCleanup = cleanupPan;
   }
 
   function setupBrush() {
@@ -294,6 +296,8 @@ export default function useTools(
     canvasRef.value.off("mouse:down", startDrawingRectangle);
     canvasRef.value.off("mouse:move", drawRectangle);
     canvasRef.value.off("mouse:up", finishDrawingRectangle);
+
+    setTool('select');
   }
 
   function createText() {
@@ -306,6 +310,8 @@ export default function useTools(
       fontSize: 20
     });
     addObjectAndSetActive(text);
+
+    setTool('select');
   }
 
   function selectTool() {
