@@ -56,7 +56,7 @@ jobs:
         git tag ${{ steps.new_version.outputs.new_version }}
         git push origin ${{ steps.new_version.outputs.new_version }}
 
-    - name: Build for macOS
+    - name: Build
       run: yarn electron:build
 
     - name: Upload build artifacts
