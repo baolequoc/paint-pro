@@ -1,5 +1,8 @@
 import { ref, Ref } from 'vue';
 import { Canvas as FabricJSCanvas, Line, Polygon, PencilBrush, Rect, IText, Group } from 'fabric';
+import usePan from '../usePan';
+
+type ToolName = 'select' | 'brush' | 'rectangle' | 'text' | 'line' | 'arrow' | 'pan';
 
 export default function useTools(
   canvasRef: Ref<FabricJSCanvas | null>,
@@ -22,6 +25,47 @@ export default function useTools(
   // Rectangle drawing state
   let rectStartPoint: { x: number; y: number } | null = null;
   let currentRect: Rect | null = null;
+
+  let panCleanup: (() => void) | null = null;
+
+  function cleanupCurrentTool() {
+    if (!canvasRef.value) return;
+    const canvas = canvasRef.value;
+
+    // Reset cursor
+    canvas.defaultCursor = 'default';
+    canvas.hoverCursor = 'move';
+
+    // Re-enable object selection and interaction
+    canvas.selection = true;
+    canvas.forEachObject((obj) => {
+      const newObj = { ...obj };
+      newObj.selectable = true;
+      newObj.evented = true;
+      obj.set(newObj);
+    });
+
+    // Clean up pan mode if it was active
+    if (panCleanup) {
+      panCleanup();
+      panCleanup = null;
+    }
+
+    // Clean up other tool states
+    canvas.isDrawingMode = false;
+    canvas.freeDrawingBrush = undefined;
+    isDrawingLine.value = false;
+    isDrawingArrow.value = false;
+    lineStartPoint = null;
+    currentLine = null;
+    arrowStartPoint = null;
+    arrowLine = null;
+    arrowHead = null;
+    rectStartPoint = null;
+    currentRect = null;
+
+    canvas.requestRenderAll();
+  }
 
   function startDrawingLine(o: any) {
     if (!canvasRef.value) return;
@@ -164,8 +208,17 @@ export default function useTools(
     isDrawingArrow.value = false;
   }
 
+  function setupPan() {
+    if (!canvasRef.value) return;
+    // cleanupCurrentTool();
+    const { setupPan, cleanupPan } = usePan(canvasRef);
+    setupPan();
+    // panCleanup = cleanupPan;
+  }
+
   function setupBrush() {
     if (!canvasRef.value) return;
+    cleanupCurrentTool();
     canvasRef.value.isDrawingMode = true;
     canvasRef.value.freeDrawingBrush = new PencilBrush(canvasRef.value);
     canvasRef.value.freeDrawingBrush.width = strokeWidth.value;
@@ -174,6 +227,7 @@ export default function useTools(
 
   function createRectangle() {
     if (!canvasRef.value) return;
+    cleanupCurrentTool();
     canvasRef.value.isDrawingMode = false;
     canvasRef.value.freeDrawingBrush = undefined;
 
@@ -244,6 +298,7 @@ export default function useTools(
 
   function createText() {
     if (!canvasRef.value) return;
+    cleanupCurrentTool();
     canvasRef.value.isDrawingMode = false;
     const text = new IText("Edit me", {
       left: 100,
@@ -255,12 +310,12 @@ export default function useTools(
 
   function selectTool() {
     if (!canvasRef.value) return;
-    canvasRef.value.isDrawingMode = false;
-    canvasRef.value.freeDrawingBrush = undefined;
+    cleanupCurrentTool();
   }
 
   function setupLine() {
     if (!canvasRef.value) return;
+    cleanupCurrentTool();
     canvasRef.value.isDrawingMode = true;
     canvasRef.value.freeDrawingBrush = undefined;
     isDrawingLine.value = true;
@@ -271,6 +326,7 @@ export default function useTools(
 
   function setupArrow() {
     if (!canvasRef.value) return;
+    cleanupCurrentTool();
     canvasRef.value.isDrawingMode = true;
     canvasRef.value.freeDrawingBrush = undefined;
     isDrawingArrow.value = true;
@@ -279,16 +335,17 @@ export default function useTools(
     canvasRef.value.on("mouse:up", finishDrawingArrow);
   }
 
-  const tools = {
+  const tools: Record<ToolName, () => void> = {
     select: selectTool,
     brush: setupBrush,
     rectangle: createRectangle,
     text: createText,
     line: setupLine,
-    arrow: setupArrow
+    arrow: setupArrow,
+    pan: setupPan
   };
 
-  function setTool(toolName: string) {
+  function setTool(toolName: ToolName) {
     activeTool.value = toolName;
     if (tools[toolName]) {
       tools[toolName]();
