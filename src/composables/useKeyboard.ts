@@ -54,6 +54,48 @@ export default function useKeyboard(
     canvasRef.value.requestRenderAll();
   });
 
-  // Handle paste
+  // // Handle Ctrl/Cmd + C for copy
+  // onKeyStroke("c", (e) => {
+  //   if (!canvasRef.value || !(e.ctrlKey || e.metaKey)) return;
+  //   e.preventDefault();
+    
+  //   const activeObj = canvasRef.value.getActiveObject();
+  //   console.log("🚀 ~ onKeyStroke ~ activeObj:", activeObj)
+  //   if (!activeObj) return;
+
+  //   // Convert the object to JSON
+  //   const json = JSON.stringify(activeObj.toJSON());
+  //   navigator.clipboard.writeText(json);
+  // });
+
+  // // Handle Ctrl/Cmd + V for paste
+  // onKeyStroke("v", (e) => {
+  //   if (!canvasRef.value || !(e.ctrlKey || e.metaKey)) return;
+  //   e.preventDefault();
+
+  //   // Get the clipboard data
+  //   navigator.clipboard.readText().then((text) => {
+  //     try {
+  //       const json = JSON.parse(text);
+  //       const obj = canvasRef.value?.loadFromJSON(json, (objects) => {
+  //         if (objects && objects.length > 0) {
+  //           const obj = objects[0];
+  //           // Offset the pasted object slightly
+  //           obj.set({
+  //             left: (obj.left || 0) + 10,
+  //             top: (obj.top || 0) + 10
+  //           });
+  //           canvasRef.value?.add(obj);
+  //           canvasRef.value?.setActiveObject(obj);
+  //           canvasRef.value?.requestRenderAll();
+  //         }
+  //       });
+  //     } catch (error) {
+  //       console.error('Failed to paste object:', error);
+  //     }
+  //   });
+  // });
+
+  // // Handle paste
   useEventListener("paste", onPaste);
 }
