@@ -31,31 +31,6 @@ jobs:
     - name: Install dependencies
       run: yarn install --ignore-engines
 
-    - name: Get latest tag
-      id: get_latest_tag
-      run: |
-        git fetch --tags
-        latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-        echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
-
-    - name: Generate new version
-      id: new_version
-      run: |
-        latest_tag=${{ steps.get_latest_tag.outputs.latest_tag }}
-        major=$(echo $latest_tag | cut -d. -f1 | tr -d 'v')
-        minor=$(echo $latest_tag | cut -d. -f2)
-        patch=$(echo $latest_tag | cut -d. -f3)
-        new_patch=$((patch + 1))
-        new_version="v$major.$minor.$new_patch"
-        echo "new_version=$new_version" >> $GITHUB_OUTPUT
-
-    - name: Create new tag
-      run: |
-        git config --local user.email "bao.lq@holistics.io"
-        git config --local user.name "baolequoc"
-        git tag ${{ steps.new_version.outputs.new_version }}
-        git push origin ${{ steps.new_version.outputs.new_version }}
-
     - name: Build
       run: yarn electron:build
 
@@ -70,13 +45,13 @@ jobs:
       id: create_release
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ steps.new_version.outputs.new_version }}
+        name: Release ${{ github.sha }}
+        body: |
+          Release for commit ${{ github.sha }}
+          Built from branch: ${{ github.ref_name }}
         files: |
           release/**/*.dmg
           release/**/*.AppImage
           release/**/*.exe
-        generate_release_notes: true
         draft: false
         prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
