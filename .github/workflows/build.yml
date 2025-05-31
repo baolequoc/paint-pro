@@ -1,10 +1,14 @@
-name: Build and Test
+name: Build and Release
 
 on:
   push:
     branches: [ release ]
   pull_request:
     branches: [ release ]
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
 jobs:
   build:
@@ -15,6 +19,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
 
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
@@ -25,12 +31,28 @@ jobs:
     - name: Install dependencies
       run: yarn install --ignore-engines
 
-    - name: Build
+    - name: Get version from RELEASE_TAG
+      id: get_version
+      run: echo "VERSION=$(cat RELEASE_TAG | tr -d '[:space:]')" >> $GITHUB_ENV
+
+    - name: Build for ${{ env.VERSION }}
       run: yarn electron:build
 
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/heads/release')
+      with:
+        tag_name: v${{ env.VERSION }}
+        name: Release v${{ env.VERSION }}
+        draft: false
+        prerelease: false
+        files: |
+          release/mac-arm64/
+
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: release
-        path: release/
+        path: release/mac-arm64/
         if-no-files-found: error
