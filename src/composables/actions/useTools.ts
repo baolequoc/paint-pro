@@ -230,7 +230,7 @@ export default function useTools(
   function createRectangle() {
     if (!canvasRef.value) return;
     cleanupCurrentTool();
-    canvasRef.value.isDrawingMode = false;
+    canvasRef.value.isDrawingMode = true;
     canvasRef.value.freeDrawingBrush = undefined;
 
     // Add event listeners for rectangle drawing
@@ -252,8 +252,6 @@ export default function useTools(
       fill: "transparent",
       stroke: brushColor.value,
       strokeWidth: strokeWidth.value,
-      selectable: false,
-      evented: false
     });
 
     canvasRef.value.add(currentRect);
