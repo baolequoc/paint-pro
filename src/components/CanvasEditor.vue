@@ -1,5 +1,7 @@
 <template>
-  <div class="w-screen h-screen flex flex-col items-center justify-center font-sans bg-gray-100 overflow-hidden fixed top-0 left-0">
+  <div
+    style="overflow: hidden;"
+  >
     <Toolbox
       :active-tool="activeTool"
       :brush-color="brushColor"
@@ -15,15 +17,17 @@
       @apply-crop="applyCropToCanvas"
       @export="handleExport"
       @clear="clearCanvas"
+      @center-view="centerView"
     />
 
     <div
       ref="canvasContainer"
-      class="absolute top-0 left-0 w-screen h-screen bg-white shadow-md overflow-auto"
+      class="absolute top-0 left-0 w-screen h-screen bg-white shadow-md"
+      style="overflow: hidden; position: relative;"
     >
       <div
         class="canvas-wrapper"
-        style="min-width: 3000px; min-height: 3000px; position: relative;"
+        style="min-width: 3000px; min-height: 3000px; position: relative; overflow: hidden;"
       >
         <canvas
           ref="canvasEl"
@@ -38,6 +42,7 @@
         type="file"
         accept="image/*"
         class="hidden"
+        style="position: absolute; top: 0; left: 0; width: 0; height: 0; opacity: 0;"
         @change="handleFileUpload"
       >
     </div>
@@ -75,7 +80,8 @@
     addObjectAndSetActive,
     removeCanvasObjects,
     clearCanvas,
-    selectAll
+    selectAll,
+    centerView
   } = useCanvas(computedCanvas, canvasHistory);
 
   // Initialize crop functionality

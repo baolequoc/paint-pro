@@ -1,5 +1,5 @@
 import { Ref, ref, watch } from 'vue';
-import { ActiveSelection, Canvas as FabricJSCanvas, FabricObject, FabricObjectProps, ObjectEvents, SerializedObjectProps } from 'fabric';
+import { ActiveSelection, Canvas as FabricJSCanvas, FabricObject, FabricObjectProps, ObjectEvents, SerializedObjectProps, Point } from 'fabric';
 
 export default function useCanvas(canvasRef: Ref<FabricJSCanvas | null>, canvasHistory: any) {
 
@@ -38,10 +38,28 @@ export default function useCanvas(canvasRef: Ref<FabricJSCanvas | null>, canvasH
     }
   }
 
+  function centerView() {
+    if (!canvasRef.value) return;
+    
+    const canvas = canvasRef.value;
+    const objects = canvas.getObjects();
+    
+    const width = canvas.width || 0;
+    const height = canvas.height || 0;
+    const container = canvas.getElement().parentElement;
+    if (!container) return;
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    const centerX = (width - containerWidth) / 2;
+    const centerY = (height - containerHeight) / 2;
+    canvas.setViewportTransform([1, 0, 0, 1, -centerX, -centerY]);
+  }
+
   return {
     addObjectAndSetActive,
     removeCanvasObjects,
     clearCanvas,
-    selectAll
+    selectAll,
+    centerView
   };
 } 

@@ -92,6 +92,11 @@
         tooltip="Apply Crop"
         @click="$emit('applyCrop')"
       />
+      <IconButton
+        icon-class="fas fa-compress-arrows-alt"
+        tooltip="Center View"
+        @click="$emit('centerView')"
+      />
     </div>
 
     <div class="tool-group actions">
@@ -156,7 +161,8 @@
     "startCrop",
     "applyCrop",
     "export",
-    "clear"
+    "clear",
+    "centerView"
   ]);
 
   const setTool = (tool) => {
