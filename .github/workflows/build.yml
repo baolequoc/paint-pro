@@ -35,7 +35,7 @@ jobs:
       id: get_version
       run: echo "VERSION=$(cat RELEASE_TAG | tr -d '[:space:]')" >> $GITHUB_ENV
 
-    - name: Build
+    - name: Build for ${{ env.VERSION }}
       run: yarn electron:build
 
     - name: Upload build artifacts
