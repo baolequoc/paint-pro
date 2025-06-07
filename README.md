@@ -66,5 +66,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgements
 - Thanks to all contributors
-- Inspired by [Inspiration Source]
-- Libraries used: [List of libraries]
+- Inspired by [https://github.com/excalidraw/excalidraw](Excalidraw)
+- Libraries used: Vue3, Election, FabricJs, Postcss(it isn't working now), TailwindCss(it isn't working now)
