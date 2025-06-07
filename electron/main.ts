@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
+import { updateElectronApp } from 'update-electron-app';
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -59,6 +60,15 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   console.log('App is ready');
+  
+  // Initialize auto-updates
+  if (!isDev) {
+    updateElectronApp({
+      updateInterval: '1 hour',
+      logger: console
+    });
+  }
+  
   createWindow();
 
   app.on('activate', () => {
