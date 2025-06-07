@@ -1,8 +1,18 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
 import path from 'path';
 import { updateElectronApp } from 'update-electron-app';
 
 const isDev = process.env.NODE_ENV === 'development';
+
+function showVersionInfo(mainWindow: BrowserWindow) {
+  const currentVersion = app.getVersion();
+  dialog.showMessageBox(mainWindow, {
+    title: 'Version Information',
+    message: `Current Version: ${currentVersion}`,
+    detail: 'Checking for updates...',
+    buttons: ['OK']
+  });
+}
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -48,6 +58,11 @@ function createWindow(): void {
     }
   }
 
+  // // Show version info after window is ready
+  // mainWindow.webContents.on('did-finish-load', () => {
+  //   showVersionInfo(mainWindow);
+  // });
+
   // Handle uncaught exceptions
   process.on('uncaughtException', (error) => {
     console.error('Uncaught exception:', error);
@@ -60,12 +75,12 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   console.log('App is ready');
-  
   // Initialize auto-updates
-  if (!isDev) {
+  if (isDev) {
     updateElectronApp({
       updateInterval: '1 hour',
-      logger: console
+      logger: console,
+      notifyUser: true
     });
   }
   
