@@ -31,9 +31,9 @@ jobs:
     - name: Install dependencies
       run: yarn install --ignore-engines
 
-    - name: Get version from RELEASE_TAG
+    - name: Get version from package.json
       id: get_version
-      run: echo "VERSION=$(cat RELEASE_TAG | tr -d '[:space:]')" >> $GITHUB_ENV
+      run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
 
     - name: Build for ${{ env.VERSION }}
       run: yarn electron:build
@@ -48,7 +48,7 @@ jobs:
         draft: false
         prerelease: false
         files: |
-          release/mac-arm64/
+          release/*-arm64.dmg
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
