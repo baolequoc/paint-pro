@@ -38,6 +38,9 @@ jobs:
     - name: Build for ${{ env.VERSION }}
       run: yarn electron:build
 
+    - name: Compress Paint Pro.app
+      run: cd release/mac-arm64 && zip -r Paint-Pro-mac-arm64.zip "Paint Pro.app"
+
     - name: Create Release
       id: create_release
       uses: softprops/action-gh-release@v2
@@ -48,7 +51,7 @@ jobs:
         draft: false
         prerelease: false
         files: |
-          release/mac-arm64/
+          release/mac-arm64/Paint-Pro-mac-arm64.zip
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
