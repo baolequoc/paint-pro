@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog } from 'electron';
 import path from 'path';
-import { updateElectronApp } from 'update-electron-app';
+import { updateElectronApp, UpdateSourceType } from 'update-electron-app';
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -76,11 +76,15 @@ function createWindow(): void {
 app.whenReady().then(() => {
   console.log('App is ready');
   // Initialize auto-updates
-  if (isDev) {
+  if (!isDev) {
     updateElectronApp({
       updateInterval: '1 hour',
       logger: console,
-      notifyUser: true
+      notifyUser: true,
+      updateSource: {
+        type: UpdateSourceType.ElectronPublicUpdateService,
+        repo: 'baolequoc/paint-pro'
+      }
     });
   }
   
