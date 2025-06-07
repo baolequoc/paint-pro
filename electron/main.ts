@@ -83,7 +83,6 @@ app.whenReady().then(() => {
       notifyUser: true,
       updateSource: {
         type: UpdateSourceType.ElectronPublicUpdateService,
-        repo: 'baolequoc/paint-pro'
       }
     });
   }
