@@ -8,7 +8,7 @@ Sometimes I want to quickly add text or simple elements to a screenshot. However
 
 
 ## Demo / Screenshot
-<iframe width="560" height="315" src="https://www.youtube.com/embed/aHS5GJD8VG4?si=rt3LU3W5Ki7Rt4qJ&amp;start=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+[Demo paint-pro](https://youtu.be/aHS5GJD8VG4?si=VWSiJ2A9i_PNIzZt)
 
 ## Table of Contents
 - [Features](#features)
