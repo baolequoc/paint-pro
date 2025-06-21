@@ -9,7 +9,7 @@ Sometimes I want to quickly add text or simple elements to a screenshot. However
 
 ## Demo / Screenshot
 
-[![Demo paint-pro](https://img.youtube.com/vi/aHS5GJD8VG4/0.jpg)](https://youtu.be/?si=VWSiJ2A9i_PNIzZt)
+[![Demo paint-pro](https://img.youtube.com/vi/aHS5GJD8VG4/0.jpg)](https://youtu.be/aHS5GJD8VG4?si=RDzlPmBtEX4ShrTM)
 
 
 ## Table of Contents
