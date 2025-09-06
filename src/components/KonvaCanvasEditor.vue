@@ -28,6 +28,7 @@
       :can-undo="canUndo"
       :can-redo="canRedo"
       :zoom-level="zoomLevel"
+      :selected-nodes-count="selectedNodes.length"
       @set-tool="setTool"
       @update:brush-color="brushColor = $event"
       @update:stroke-width="strokeWidth = $event"
@@ -68,9 +69,47 @@
     <div 
       ref="containerRef" 
       class="canvas-container"
+      tabindex="0"
       @wheel="handleWheel"
       @paste="handlePaste"
-    />
+      @click="focusCanvas"
+    >
+      <!-- Paste Hint Overlay (shown when canvas is empty) -->
+      <div
+        v-if="isCanvasEmpty"
+        class="paste-hint"
+      >
+        <div class="paste-hint-content">
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <rect
+              x="9"
+              y="9"
+              width="13"
+              height="13"
+              rx="2"
+              ry="2"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+          </svg>
+          <h3>Start Creating</h3>
+          <p>
+            Copy an image and paste it here (Ctrl+V)<br>
+            or drag and drop an image file
+          </p>
+        </div>
+      </div>
+    </div>
 
     <!-- Hidden file input -->
     <input
@@ -79,12 +118,12 @@
       accept="image/*"
       class="hidden"
       @change="handleFileUpload"
-    />
+    >
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import Konva from 'konva';
 import type { Tool, Point } from '@/types/konva';
 
@@ -216,7 +255,7 @@ const {
   canUndo,
   canRedo,
   initHistory,
-} = useKonvaHistory(stage);
+} = useKonvaHistory(stage, clearSelection);
 
 // Zoom
 const {
@@ -277,6 +316,10 @@ onMounted(() => {
       setupEventListeners();
       initTransformer();
       initHistory();
+      // Auto-focus the canvas for paste functionality
+      nextTick(() => {
+        focusCanvas();
+      });
     }
   }, 100);
   
@@ -726,8 +769,14 @@ const handleFileUpload = async (e: Event) => {
   const file = input.files?.[0];
   
   if (file) {
-    await loadImageFromFile(file);
-    saveState();
+    const imageNode = await loadImageFromFile(file);
+    if (imageNode) {
+      // Select the newly uploaded image
+      clearSelection();
+      selectNodes([imageNode]);
+      saveState();
+      showNotification('Image uploaded to canvas', 'success');
+    }
   }
   
   // Reset input
@@ -735,8 +784,39 @@ const handleFileUpload = async (e: Event) => {
 };
 
 const handlePaste = async (e: ClipboardEvent) => {
-  await handleImagePaste(e);
-  saveState();
+  // Check if clipboard has image data
+  const items = e.clipboardData?.items;
+  let hasImage = false;
+  
+  if (items) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf('image') !== -1) {
+        hasImage = true;
+        break;
+      }
+    }
+  }
+  
+  if (hasImage) {
+    // Handle image paste
+    const imageNode = await handleImagePaste(e);
+    if (imageNode) {
+      // Select the newly pasted image
+      clearSelection();
+      selectNodes([imageNode]);
+      saveState();
+      showNotification('Image pasted to canvas', 'success');
+    }
+  } else {
+    // Handle object paste (existing functionality)
+    const pastedNodes = paste();
+    if (pastedNodes && pastedNodes.length > 0) {
+      selectNodes(pastedNodes);
+      saveState();
+      showNotification(`${pastedNodes.length} object(s) pasted`, 'success');
+    }
+  }
 };
 
 // Crop operations
@@ -761,21 +841,156 @@ const cancelCrop = () => {
 };
 
 // Export operations
-const handleExport = async (type: 'png' | 'jpeg' | 'clipboard') => {
+const handleExport = async (type: 'png' | 'jpeg' | 'clipboard', scope: 'selection' | 'all' | 'auto' = 'auto') => {
+  // Auto-detect: if there are selected nodes, export selection, otherwise export all
+  const hasSelection = selectedNodes.value.length > 0;
+  const exportSelection = scope === 'selection' || (scope === 'auto' && hasSelection);
+  
   switch (type) {
     case 'png':
-      exportToPNG();
+      if (exportSelection) {
+        exportSelectionToPNG();
+      } else {
+        exportToPNG();
+      }
       break;
     case 'jpeg':
-      exportToJPEG();
+      if (exportSelection) {
+        exportSelectionToJPEG();
+      } else {
+        exportToJPEG();
+      }
       break;
     case 'clipboard':
-      const success = await copyToClipboard(selectedNodes.value.length > 0);
+      const success = await copyToClipboard(exportSelection);
       if (success) {
-        alert('Copied to clipboard!');
+        const message = exportSelection ? 'Selected objects copied to clipboard!' : 'Canvas copied to clipboard!';
+        // Create a toast notification instead of alert
+        showNotification(message, 'success');
+      } else {
+        showNotification('Failed to copy to clipboard', 'error');
       }
       break;
   }
+};
+
+// Export selected objects to PNG
+const exportSelectionToPNG = (filename?: string) => {
+  const dataURL = exportSelection({ mimeType: 'image/png' });
+  if (!dataURL) {
+    showNotification('No objects selected for export', 'warning');
+    return;
+  }
+
+  const link = document.createElement('a');
+  link.download = filename || 'selected-objects.png';
+  link.href = dataURL;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  showNotification('Selected objects exported as PNG', 'success');
+};
+
+// Export selected objects to JPEG
+const exportSelectionToJPEG = (filename?: string, quality = 0.9) => {
+  const dataURL = exportSelection({ 
+    mimeType: 'image/jpeg',
+    quality 
+  });
+  if (!dataURL) {
+    showNotification('No objects selected for export', 'warning');
+    return;
+  }
+
+  const link = document.createElement('a');
+  link.download = filename || 'selected-objects.jpg';
+  link.href = dataURL;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  showNotification('Selected objects exported as JPEG', 'success');
+};
+
+// Simple notification system
+const showNotification = (message: string, type: 'success' | 'error' | 'warning' = 'success') => {
+  // Create a simple toast notification
+  const notification = document.createElement('div');
+  notification.className = `toast-notification toast-${type}`;
+  notification.textContent = message;
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 10001;
+    animation: slideInRight 0.3s ease-out, fadeOut 0.3s ease-out 2.7s;
+    max-width: 300px;
+    word-wrap: break-word;
+  `;
+  
+  const colors = {
+    success: '#10b981',
+    error: '#ef4444',
+    warning: '#f59e0b'
+  };
+  
+  notification.style.backgroundColor = colors[type];
+  
+  document.body.appendChild(notification);
+  
+  // Auto remove after 3 seconds
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  }, 3000);
+  
+  // Add CSS animations if not already present
+  if (!document.querySelector('#toast-animations')) {
+    const style = document.createElement('style');
+    style.id = 'toast-animations';
+    style.textContent = `
+      @keyframes slideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      @keyframes fadeOut {
+        from { opacity: 1; }
+        to { opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+};
+
+// Check if canvas is empty (for showing hint)
+const isCanvasEmpty = computed(() => {
+  if (!mainLayer.value) return true;
+  
+  // Check for actual content (selectable objects)
+  const children = mainLayer.value.children || [];
+  const hasSelectableContent = children.some((child: any) => {
+    return child.name && (child.name() === 'selectable' || 
+           child.className === 'Image' || 
+           child.className === 'Text' ||
+           child.className === 'Rect' ||
+           child.className === 'Circle' ||
+           child.className === 'Line' ||
+           child.className === 'Arrow');
+  });
+  
+  return !hasSelectableContent;
+});
+
+// Focus management
+const focusCanvas = () => {
+  containerRef.value?.focus();
 };
 
 // Canvas operations
@@ -801,46 +1016,39 @@ const centerView = () => {
 };
 
 // History operations
-const handleUndo = () => {
-  // Clear selection before undo to avoid orphaned selections
-  clearSelection();
-  undo();
+const handleUndo = async () => {
+  await undo();
   // Re-initialize transformer after undo
-  setTimeout(() => {
-    clearSelection();
-    // Re-initialize transformer to ensure it works with the restored stage
-    initTransformer();
-    // Reattach double-click listeners to text nodes
-    reattachTextListeners();
-    // Ensure drawing tools still work
-    if (tempLayer.value) {
-      tempLayer.value.moveToTop();
-    }
-    if (transformerLayer.value) {
-      transformerLayer.value.moveToTop();
-    }
-  }, 100);
+  await nextTick(); // Wait for DOM updates
+  // Re-initialize transformer to ensure it works with the restored stage
+  initTransformer();
+  // Reattach double-click listeners to text nodes
+  reattachTextListeners();
+  // Ensure drawing tools still work
+  if (tempLayer.value) {
+    tempLayer.value.moveToTop();
+  }
+  if (transformerLayer.value) {
+    transformerLayer.value.moveToTop();
+  }
 };
 
-const handleRedo = () => {
-  // Clear selection before redo to avoid orphaned selections
-  clearSelection();
-  redo();
+const handleRedo = async () => {
+  console.log('handleRedo called');
+  await redo();
   // Re-initialize transformer after redo
-  setTimeout(() => {
-    clearSelection();
-    // Re-initialize transformer to ensure it works with the restored stage
-    initTransformer();
-    // Reattach double-click listeners to text nodes
-    reattachTextListeners();
-    // Ensure drawing tools still work
-    if (tempLayer.value) {
-      tempLayer.value.moveToTop();
-    }
-    if (transformerLayer.value) {
-      transformerLayer.value.moveToTop();
-    }
-  }, 100);
+  await nextTick(); // Wait for DOM updates
+  // Re-initialize transformer to ensure it works with the restored stage
+  initTransformer();
+  // Reattach double-click listeners to text nodes
+  reattachTextListeners();
+  // Ensure drawing tools still work
+  if (tempLayer.value) {
+    tempLayer.value.moveToTop();
+  }
+  if (transformerLayer.value) {
+    transformerLayer.value.moveToTop();
+  }
 };
 
 // Zoom operations
@@ -1012,11 +1220,49 @@ useKonvaKeyboard({
       canPaste.value = true;
     }
   },
-  onPaste: () => {
-    const pastedNodes = paste();
-    if (pastedNodes) {
-      selectNodes(pastedNodes);
-      saveState();
+  onPaste: async () => {
+    // Check clipboard for images first
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      let hasImage = false;
+      
+      for (const clipboardItem of clipboardItems) {
+        for (const type of clipboardItem.types) {
+          if (type.startsWith('image/')) {
+            hasImage = true;
+            const blob = await clipboardItem.getType(type);
+            const url = URL.createObjectURL(blob);
+            const imageNode = await loadImage(url, 100, 100);
+            URL.revokeObjectURL(url);
+            if (imageNode) {
+              // Select the newly pasted image
+              clearSelection();
+              selectNodes([imageNode]);
+              saveState(); // Save state after image is added
+              showNotification('Image pasted from clipboard', 'success');
+            }
+            return;
+          }
+        }
+      }
+      
+      if (!hasImage) {
+        // Handle object paste (existing functionality)
+        const pastedNodes = paste();
+        if (pastedNodes && pastedNodes.length > 0) {
+          selectNodes(pastedNodes);
+          saveState();
+          showNotification(`${pastedNodes.length} object(s) pasted`, 'success');
+        }
+      }
+    } catch (error) {
+      // Fallback to object paste if clipboard API fails
+      const pastedNodes = paste();
+      if (pastedNodes && pastedNodes.length > 0) {
+        selectNodes(pastedNodes);
+        saveState();
+        showNotification(`${pastedNodes.length} object(s) pasted`, 'success');
+      }
     }
   },
   onCut: () => {
@@ -1078,7 +1324,7 @@ useKonvaKeyboard({
   onZoomIn: () => handleZoomIn(),
   onZoomOut: () => handleZoomOut(),
   onFitToScreen: () => handleCenterView(),
-  onExport: () => handleExport('png'),
+  onExport: () => handleExport('png', 'auto'),
   // Text editing (moved from separate handler)
   onEditText: () => {
     if (selectedNodes.value.length === 1) {
@@ -1119,6 +1365,54 @@ onUnmounted(() => {
   background: radial-gradient(circle, #ffffff 1px, transparent 1px);
   background-size: 20px 20px;
   background-color: #fafbfc;
+  outline: none; /* Remove default focus outline */
+}
+
+.canvas-container:focus {
+  /* Optional: Add subtle focus indicator */
+  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* Paste Hint Overlay */
+.paste-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #9ca3af;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.paste-hint-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(229, 231, 235, 0.5);
+}
+
+.paste-hint-content svg {
+  color: #d1d5db;
+}
+
+.paste-hint-content h3 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.paste-hint-content p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #9ca3af;
 }
 
 .hidden {

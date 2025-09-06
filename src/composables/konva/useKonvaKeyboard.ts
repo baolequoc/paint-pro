@@ -42,8 +42,9 @@ export function useKonvaKeyboard(handlers: KeyboardHandlers) {
       return;
     }
     
-    // Redo
-    if (isCtrlOrCmd && e.key === 'z' && e.shiftKey) {
+    // Redo (Ctrl+Shift+Z or Ctrl+Y)
+    if ((isCtrlOrCmd && e.key === 'z' && e.shiftKey) || (isCtrlOrCmd && e.key === 'y')) {
+      console.log('Redo shortcut detected:', { key: e.key, shiftKey: e.shiftKey, ctrlOrCmd: isCtrlOrCmd });
       e.preventDefault();
       handlers.onRedo?.();
       return;

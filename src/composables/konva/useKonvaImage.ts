@@ -53,9 +53,9 @@ export function useKonvaImage(mainLayer: Ref<KonvaLayer | null>) {
   };
 
   // Handle paste from clipboard
-  const handlePaste = async (e: ClipboardEvent) => {
+  const handlePaste = async (e: ClipboardEvent): Promise<Konva.Image | null> => {
     const items = e.clipboardData?.items;
-    if (!items) return;
+    if (!items) return null;
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
@@ -63,11 +63,13 @@ export function useKonvaImage(mainLayer: Ref<KonvaLayer | null>) {
         const blob = item.getAsFile();
         if (blob) {
           const url = URL.createObjectURL(blob);
-          await loadImage(url, 100, 100);
+          const imageNode = await loadImage(url, 100, 100);
           URL.revokeObjectURL(url);
+          return imageNode;
         }
       }
     }
+    return null;
   };
 
   // Start crop

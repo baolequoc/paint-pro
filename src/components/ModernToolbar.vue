@@ -363,26 +363,109 @@
             />
           </svg>
         </button>
-        <button
-          class="action-btn"
-          title="Export (Ctrl/⌘ + E)"
-          @click="$emit('export', 'png')"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
+        <!-- Export Dropdown -->
+        <div class="dropdown-container" :class="{ active: showExportMenu }">
+          <button
+            class="action-btn dropdown-trigger"
+            title="Export (Ctrl/⌘ + E)"
+            @click="toggleExportMenu"
+            @mouseenter="showExportPreview"
+            @mouseleave="hideExportPreview"
           >
-            <path
-              d="M12 15V3m0 0l-4 4m4-4l4 4M3 15v4a2 2 0 002 2h14a2 2 0 002-2v-4"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <path
+                d="M12 15V3m0 0l-4 4m4-4l4 4M3 15v4a2 2 0 002 2h14a2 2 0 002-2v-4"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <svg
+              class="dropdown-arrow"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <path
+                d="M6 9l6 6 6-6"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          
+          <div v-if="showExportMenu" class="dropdown-menu export-menu">
+            <div class="dropdown-header">
+              <span>Export Options</span>
+              <span v-if="hasSelection" class="selection-indicator">{{ selectionCount }} selected</span>
+            </div>
+            
+            <div class="menu-section">
+              <div class="menu-label">Quick Actions</div>
+              <button class="menu-item" @click="handleExportAction('clipboard', 'auto')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                Copy to Clipboard
+                <span class="shortcut">Ctrl+C</span>
+              </button>
+            </div>
+            
+            <div class="menu-section">
+              <div class="menu-label">{{ hasSelection ? 'Export Selection' : 'Export Canvas' }}</div>
+              <button class="menu-item" @click="handleExportAction('png', 'auto')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
+                  <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                PNG Image
+                <span class="format">.png</span>
+              </button>
+              <button class="menu-item" @click="handleExportAction('jpeg', 'auto')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
+                  <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                JPEG Image
+                <span class="format">.jpg</span>
+              </button>
+            </div>
+            
+            <div v-if="hasSelection" class="menu-section">
+              <div class="menu-label">Export Full Canvas</div>
+              <button class="menu-item" @click="handleExportAction('png', 'all')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
+                  <line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="2"/>
+                  <line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                Full Canvas PNG
+                <span class="format">.png</span>
+              </button>
+              <button class="menu-item" @click="handleExportAction('jpeg', 'all')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
+                  <line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="2"/>
+                  <line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                Full Canvas JPEG
+                <span class="format">. jpg</span>
+              </button>
+            </div>
+          </div>
+        </div>
         <button
           class="action-btn danger"
           title="Clear Canvas"
@@ -409,7 +492,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { Tool } from '@/types/konva';
 
 interface Props {
@@ -420,6 +503,7 @@ interface Props {
   canUndo: boolean;
   canRedo: boolean;
   zoomLevel: number;
+  selectedNodesCount?: number;
 }
 
 const props = defineProps<Props>();
@@ -431,7 +515,7 @@ const emit = defineEmits<{
   'start-crop': [];
   'apply-crop': [];
   'cancel-crop': [];
-  'export': [type: 'png' | 'jpeg' | 'clipboard'];
+  'export': [type: 'png' | 'jpeg' | 'clipboard', scope?: 'selection' | 'all' | 'auto'];
   'clear': [];
   'center-view': [];
   'undo': [];
@@ -470,6 +554,51 @@ const confirmClear = () => {
     emit('clear');
   }
 };
+
+// Export menu state
+const showExportMenu = ref(false);
+
+// Computed properties
+const hasSelection = computed(() => (props.selectedNodesCount || 0) > 0);
+const selectionCount = computed(() => props.selectedNodesCount || 0);
+
+// Export menu methods
+const toggleExportMenu = () => {
+  showExportMenu.value = !showExportMenu.value;
+};
+
+const hideExportMenu = () => {
+  showExportMenu.value = false;
+};
+
+const handleExportAction = (type: 'png' | 'jpeg' | 'clipboard', scope: 'selection' | 'all' | 'auto' = 'auto') => {
+  emit('export', type, scope);
+  hideExportMenu();
+};
+
+const showExportPreview = () => {
+  // Could add preview functionality here
+};
+
+const hideExportPreview = () => {
+  // Hide any preview
+};
+
+// Click outside to close dropdown
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement;
+  if (!target.closest('.dropdown-container')) {
+    hideExportMenu();
+  }
+};
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
 </script>
 
 <style scoped>
@@ -800,5 +929,131 @@ const confirmClear = () => {
   .shortcut {
     display: none;
   }
+}
+
+/* Export Dropdown Styles */
+.dropdown-container {
+  position: relative;
+}
+
+.dropdown-trigger {
+  display: flex !important;
+  align-items: center;
+  gap: 4px;
+}
+
+.dropdown-arrow {
+  transition: transform 0.2s;
+}
+
+.dropdown-container.active .dropdown-arrow {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 280px;
+  animation: slideDown 0.2s ease-out;
+  overflow: hidden;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.selection-indicator {
+  font-size: 12px;
+  color: #10b981;
+  font-weight: 500;
+  background: #ecfdf5;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.menu-section {
+  padding: 8px;
+}
+
+.menu-section:not(:last-child) {
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.menu-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  padding: 0 8px;
+}
+
+.menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #374151;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.menu-item:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.menu-item svg {
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.menu-item:hover svg {
+  color: #374151;
+}
+
+.shortcut {
+  margin-left: auto;
+  font-size: 11px;
+  color: #9ca3af;
+  font-family: 'SF Mono', Consolas, monospace;
+}
+
+.format {
+  margin-left: auto;
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
 }
 </style>
