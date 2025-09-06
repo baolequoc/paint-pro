@@ -220,12 +220,12 @@ const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => 
   switch (activeTool.value) {
     case 'select':
       // Only start drag selection if clicking on empty area (stage)
-      // Don't start selection if clicking on a selectable element or drag handle
-      if (e.target === stage.value && !e.target.hasName('drag-handle')) {
+      if (e.target === stage.value) {
         startSelection(e);
+      } else if (e.target.hasName('selectable')) {
+        // Handle selection immediately on mousedown for selectable elements
+        handleNodeClick(e);
       }
-      // Note: If clicking on a selectable element, Konva will handle dragging automatically
-      // if the element has draggable: true
       break;
     case 'brush':
       startBrushDrawing();
@@ -280,8 +280,7 @@ const handleMouseUp = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
 
 const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
   if (activeTool.value === 'select') {
-    handleNodeClick(e);
-    
+    // Only update properties, selection is already handled in mousedown
     // Update brush color and stroke width based on selected object
     if (selectedNodes.value.length === 1) {
       const node = selectedNodes.value[0];

@@ -42,6 +42,15 @@ export function useKonvaSelection(
       },
     });
 
+    // Update drag handles during and after transformation
+    tr.on('transform', () => {
+      updateDragHandle();
+    });
+
+    tr.on('transformend', () => {
+      updateDragHandle();
+    });
+
     transformerLayer.value.add(tr);
     transformer.value = tr;
   };
@@ -49,14 +58,12 @@ export function useKonvaSelection(
   const updateDragHandle = () => {
     if (!transformerLayer.value || !transformer.value) return;
 
-    // Remove existing drag handle
-    if (dragHandle.value) {
-      dragHandle.value.destroy();
-      dragHandle.value = null;
-    }
-
     // Don't show drag handles if nothing is selected
     if (selectedNodes.value.length === 0) {
+      if (dragHandle.value) {
+        dragHandle.value.destroy();
+        dragHandle.value = null;
+      }
       transformerLayer.value.batchDraw();
       return;
     }
@@ -66,6 +73,40 @@ export function useKonvaSelection(
     
     // Don't create handle if box is invalid
     if (!box || box.width === 0 || box.height === 0) {
+      if (dragHandle.value) {
+        dragHandle.value.destroy();
+        dragHandle.value = null;
+      }
+      return;
+    }
+    
+    // If handles already exist, just update their positions
+    if (dragHandle.value) {
+      const handles = dragHandle.value.getChildren();
+      handles.forEach((handle: any) => {
+        const position = handle.getAttr('data-position');
+        if (position) {
+          switch(position) {
+            case 'top':
+              handle.x(box.x + box.width / 2);
+              handle.y(box.y - 15);
+              break;
+            case 'bottom':
+              handle.x(box.x + box.width / 2);
+              handle.y(box.y + box.height + 15);
+              break;
+            case 'left':
+              handle.x(box.x - 15);
+              handle.y(box.y + box.height / 2);
+              break;
+            case 'right':
+              handle.x(box.x + box.width + 15);
+              handle.y(box.y + box.height / 2);
+              break;
+          }
+        }
+      });
+      transformerLayer.value.batchDraw();
       return;
     }
     
@@ -107,6 +148,7 @@ export function useKonvaSelection(
         y: y,
         draggable: true,
         name: 'drag-handle',
+        'data-position': position,
       });
 
       // Create handle background
@@ -297,8 +339,11 @@ export function useKonvaSelection(
 
     selectedNodes.value = nodes;
     
-    // Add highlight to newly selected nodes
+    // Move selected nodes to top and add highlight
     nodes.forEach(node => {
+      // Move to top (bring to front)
+      node.moveToTop();
+      
       // Add blue shadow as selection indicator
       if ('shadowColor' in node && typeof node.shadowColor === 'function') {
         node.shadowColor('#0066ff');
@@ -482,8 +527,14 @@ export function useKonvaSelection(
   const handleNodeClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
     const clickedNode = e.target;
     
+    // Clear selection if clicking on stage
     if (clickedNode === stage.value) {
       clearSelection();
+      return;
+    }
+
+    // Ignore clicks on drag handles
+    if (clickedNode.hasName('drag-handle') || clickedNode.getParent()?.hasName('drag-handle')) {
       return;
     }
 
@@ -493,39 +544,39 @@ export function useKonvaSelection(
       if (clickedNode.getParent()?.className === 'Transformer') {
         return;
       }
+      // Clear selection when clicking on non-selectable area
       clearSelection();
       return;
     }
 
     // Check if shift/ctrl is pressed for multi-selection
-    const metaPressed = e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey;
+    const metaPressed = e.evt?.shiftKey || e.evt?.ctrlKey || e.evt?.metaKey;
     
     // Check if the clicked node is already selected
     const isAlreadySelected = selectedNodes.value.includes(clickedNode);
     
     if (!metaPressed) {
-      // If clicking on an already selected node, keep it selected (for dragging)
-      // Only change selection if clicking on a different node
+      // Single selection mode
       if (!isAlreadySelected) {
+        // Select only this node
         selectNodes([clickedNode]);
       }
-      // If already selected and only one selected, keep it selected
-      // If already selected and multiple selected, select only this one
-      else if (selectedNodes.value.length > 1) {
-        selectNodes([clickedNode]);
-      }
-      // If it's the only one selected, keep it selected (do nothing)
+      // If already selected, keep it selected (don't deselect)
+      // This allows for potential dragging
     } else {
+      // Multi-selection mode with meta key
       const nodes = [...selectedNodes.value];
       const index = nodes.indexOf(clickedNode);
       
       if (index >= 0) {
+        // Deselect if already selected
         nodes.splice(index, 1);
+        selectNodes(nodes);
       } else {
+        // Add to selection
         nodes.push(clickedNode);
+        selectNodes(nodes);
       }
-      
-      selectNodes(nodes);
     }
   };
 
