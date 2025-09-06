@@ -12,6 +12,9 @@ export interface DrawingConfig {
   stroke: string;
   strokeWidth: number;
   fill?: string;
+  opacity?: number;
+  dash?: number[];
+  lineCap?: 'butt' | 'round' | 'square';
 }
 
 export interface ShapeConfig extends DrawingConfig {

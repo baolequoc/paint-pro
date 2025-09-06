@@ -12,6 +12,10 @@ export function useKonvaDrawing(
   const brushConfig = ref<DrawingConfig>({
     stroke: '#000000',
     strokeWidth: 2,
+    fill: undefined,
+    opacity: 1,
+    dash: undefined,
+    lineCap: 'round',
   });
 
   // Brush/Pencil Tool
@@ -26,9 +30,11 @@ export function useKonvaDrawing(
     const line = new Konva.Line({
       stroke: brushConfig.value.stroke,
       strokeWidth: brushConfig.value.strokeWidth,
+      opacity: brushConfig.value.opacity || 1,
       globalCompositeOperation: 'source-over',
-      lineCap: 'round',
+      lineCap: brushConfig.value.lineCap || 'round',
       lineJoin: 'round',
+      dash: brushConfig.value.dash,
       points: [pos.x, pos.y, pos.x, pos.y],
       tension: 0.5,
       name: 'selectable',
@@ -64,7 +70,9 @@ export function useKonvaDrawing(
       points: [start.x, start.y, end.x, end.y],
       stroke: config?.stroke || brushConfig.value.stroke,
       strokeWidth: config?.strokeWidth || brushConfig.value.strokeWidth,
-      lineCap: 'round',
+      opacity: config?.opacity || brushConfig.value.opacity || 1,
+      lineCap: config?.lineCap || brushConfig.value.lineCap || 'round',
+      dash: config?.dash || brushConfig.value.dash,
       name: 'selectable',
       draggable: false,
     });
@@ -83,8 +91,10 @@ export function useKonvaDrawing(
       stroke: config?.stroke || brushConfig.value.stroke,
       strokeWidth: config?.strokeWidth || brushConfig.value.strokeWidth,
       fill: config?.stroke || brushConfig.value.stroke,
+      opacity: config?.opacity || brushConfig.value.opacity || 1,
       pointerLength: 10,
       pointerWidth: 10,
+      dash: config?.dash || brushConfig.value.dash,
       name: 'selectable',
       draggable: false,
     });
@@ -105,7 +115,9 @@ export function useKonvaDrawing(
       height: Math.abs(height),
       stroke: config?.stroke || brushConfig.value.stroke,
       strokeWidth: config?.strokeWidth || brushConfig.value.strokeWidth,
-      fill: config?.fill || 'transparent',
+      fill: config?.fill !== undefined ? config.fill : (brushConfig.value.fill || 'transparent'),
+      opacity: config?.opacity || brushConfig.value.opacity || 1,
+      dash: config?.dash || brushConfig.value.dash,
       name: 'selectable',
       draggable: false,
     });
@@ -125,7 +137,9 @@ export function useKonvaDrawing(
       radius,
       stroke: config?.stroke || brushConfig.value.stroke,
       strokeWidth: config?.strokeWidth || brushConfig.value.strokeWidth,
-      fill: config?.fill || 'transparent',
+      fill: config?.fill !== undefined ? config.fill : (brushConfig.value.fill || 'transparent'),
+      opacity: config?.opacity || brushConfig.value.opacity || 1,
+      dash: config?.dash || brushConfig.value.dash,
       name: 'selectable',
       draggable: false,
     });
@@ -150,6 +164,7 @@ export function useKonvaDrawing(
       fontSize: config?.fontSize || 20,
       fontFamily: config?.fontFamily || 'Arial',
       fill: config?.fill || brushConfig.value.stroke,
+      opacity: brushConfig.value.opacity || 1,
       name: 'selectable',
       draggable: false,
     });
@@ -306,6 +321,27 @@ export function useKonvaDrawing(
     brushConfig.value.fill = color;
   };
 
+  const setOpacity = (opacity: number) => {
+    brushConfig.value.opacity = opacity;
+  };
+
+  const setStrokeStyle = (style: 'solid' | 'dashed' | 'dotted') => {
+    switch (style) {
+      case 'dashed':
+        brushConfig.value.dash = [10, 5];
+        break;
+      case 'dotted':
+        brushConfig.value.dash = [2, 4];
+        break;
+      default:
+        brushConfig.value.dash = undefined;
+    }
+  };
+
+  const setLineCap = (cap: 'butt' | 'round' | 'square') => {
+    brushConfig.value.lineCap = cap;
+  };
+
   return {
     isDrawing,
     brushConfig,
@@ -321,5 +357,8 @@ export function useKonvaDrawing(
     setBrushColor,
     setBrushSize,
     setFillColor,
+    setOpacity,
+    setStrokeStyle,
+    setLineCap,
   };
 }

@@ -3,30 +3,6 @@
     <!-- Left Toolbar - Main Tools -->
     <div class="toolbar-left">
       <div class="tool-section">
-        <!-- Logo/Menu -->
-        <button
-          class="menu-btn"
-          title="Menu"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-          >
-            <path
-              d="M3 12h18M3 6h18M3 18h18"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-            />
-          </svg>
-        </button>
-      </div>
-
-      <div class="divider-vertical" />
-
-      <div class="tool-section">
         <!-- Selection Tools -->
         <div
           class="tool-item"
@@ -258,120 +234,63 @@
     </div>
 
     <!-- Center Toolbar - Properties -->
-    <div class="toolbar-center">
-      <!-- Color Controls -->
-      <div class="property-section">
-        <div class="color-control">
-          <div
-            class="color-preview"
-            :style="{ background: brushColor }"
-            @click="toggleColorPicker"
-          >
-            <input 
-              v-show="false"
-              ref="colorInput"
-              type="color" 
-              :value="brushColor"
-              @input="updateColor($event.target.value)"
-            >
-          </div>
-          <div class="color-label">
-            Color
-          </div>
-        </div>
-
-        <!-- Quick Color Palette -->
-        <div class="quick-colors">
-          <div 
-            v-for="color in quickColors" 
-            :key="color"
-            class="quick-color"
-            :style="{ background: color }"
-            :class="{ active: brushColor === color }"
-            @click="updateColor(color)"
-          />
-        </div>
-      </div>
-
-      <div class="divider-vertical" />
-
-      <!-- Stroke Controls -->
-      <div class="property-section">
-        <div class="stroke-control">
-          <label class="property-label">Stroke</label>
-          <div class="stroke-input-group">
-            <input 
-              type="number" 
-              :value="strokeWidth" 
-              min="1" 
-              max="100"
-              class="stroke-input"
-              @input="updateStrokeWidth(Number($event.target.value))"
-            >
-            <span class="unit">px</span>
-          </div>
-          <input 
-            type="range" 
-            :value="strokeWidth" 
-            min="1" 
-            max="100"
-            class="stroke-slider"
-            @input="updateStrokeWidth(Number($event.target.value))"
-          >
-        </div>
-      </div>
-
-      <div class="divider-vertical" />
-
-      <!-- History Controls -->
-      <div class="property-section">
-        <button 
-          class="action-btn" 
-          :disabled="!canUndo"
-          title="Undo (⌘Z)"
-          @click="$emit('undo')"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-          >
-            <path
-              d="M3 10h10a5 5 0 010 10M3 10l4-4M3 10l4 4"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
-        <button 
-          class="action-btn" 
-          :disabled="!canRedo"
-          title="Redo (⌘⇧Z)"
-          @click="$emit('redo')"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-          >
-            <path
-              d="M21 10H11a5 5 0 000 10m10-10l-4-4m4 4l-4 4"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
-      </div>
-    </div>
+    
 
     <!-- Right Toolbar - View Controls -->
     <div class="toolbar-right">
+      <div class="toolbar-center">
+        <!-- Color Controls -->
+        <div class="property-section" />
+
+
+
+
+        <!-- History Controls -->
+        <div class="property-section">
+          <button 
+            class="action-btn" 
+            :disabled="!canUndo"
+            title="Undo (Ctrl/⌘ + Z)"
+            @click="$emit('undo')"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <path
+                d="M3 10h10a5 5 0 010 10M3 10l4-4M3 10l4 4"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <button 
+            class="action-btn" 
+            :disabled="!canRedo"
+            title="Redo (Ctrl/⌘ + Shift + Z)"
+            @click="$emit('redo')"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <path
+                d="M21 10H11a5 5 0 000 10m10-10l-4-4m4 4l-4 4"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
       <!-- Zoom Controls -->
       <div class="zoom-controls">
         <button
@@ -446,7 +365,7 @@
         </button>
         <button
           class="action-btn"
-          title="Export (⌘E)"
+          title="Export (Ctrl/⌘ + E)"
           @click="$emit('export', 'png')"
         >
           <svg

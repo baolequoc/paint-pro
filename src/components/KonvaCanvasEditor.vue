@@ -44,6 +44,25 @@
       @zoom-out="handleZoomOut"
       @reset-zoom="handleResetZoom"
     />
+    
+    <!-- Property Panel -->
+    <PropertyPanel
+      :stroke-color="brushColor"
+      :fill-color="fillColor"
+      :stroke-width="strokeWidth"
+      :opacity="currentOpacity"
+      :stroke-style="strokeStyle"
+      :line-cap="lineCap"
+      :show-text-properties="hasTextSelected"
+      :font-family="currentFontFamily"
+      :font-size="currentFontSize"
+      @update:stroke-color="brushColor = $event"
+      @update:fill-color="fillColor = $event"
+      @update:stroke-width="strokeWidth = $event"
+      @update:opacity="handleOpacityChange"
+      @update:stroke-style="strokeStyle = $event"
+      @update:line-cap="lineCap = $event"
+    />
 
     <!-- Canvas Container -->
     <div 
@@ -82,6 +101,7 @@ import { useKonvaActions } from '@/composables/konva/useKonvaActions';
 
 // Components
 import ModernToolbar from './ModernToolbar.vue';
+import PropertyPanel from './PropertyPanel.vue';
 import ContextMenu from './ContextMenu.vue';
 
 // Refs
@@ -91,7 +111,14 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 // Tool state
 const activeTool = ref<Tool>('select');
 const brushColor = ref('#000000');
+const fillColor = ref<string | null>(null);
 const strokeWidth = ref(2);
+const currentOpacity = ref(1);
+const strokeStyle = ref<'solid' | 'dashed' | 'dotted'>('solid');
+const lineCap = ref<'butt' | 'round' | 'square'>('round');
+const hasTextSelected = ref(false);
+const currentFontFamily = ref('Arial');
+const currentFontSize = ref(20);
 
 // Context menu state
 const contextMenuVisible = ref(false);
@@ -101,7 +128,6 @@ const hasGroupSelected = ref(false);
 const currentFillColor = ref('#000000');
 const currentStrokeColor = ref('#000000');
 const currentStrokeWidth = ref(2);
-const currentOpacity = ref(1);
 
 // Stage setup
 const {
@@ -149,6 +175,10 @@ const {
   enableTextEditing,
   setBrushColor,
   setBrushSize,
+  setFillColor,
+  setOpacity,
+  setStrokeStyle,
+  setLineCap,
 } = useKonvaDrawing(stage, mainLayer, getPointerPosition);
 
 // Images
@@ -250,27 +280,6 @@ onMounted(() => {
     }
   }, 100);
   
-  // Add keyboard listener for text editing
-  const handleKeyPress = (e: KeyboardEvent) => {
-    // Press 'E' to edit selected text
-    if (e.key === 'e' || e.key === 'E') {
-      if (selectedNodes.value.length === 1) {
-        const node = selectedNodes.value[0];
-        if (node.className === 'Text') {
-          e.preventDefault();
-          console.log('Editing text via keyboard shortcut');
-          enableTextEditing(node as Konva.Text);
-        }
-      }
-    }
-  };
-  
-  window.addEventListener('keydown', handleKeyPress);
-  
-  // Cleanup on unmount
-  onUnmounted(() => {
-    window.removeEventListener('keydown', handleKeyPress);
-  });
 });
 
 // Setup event listeners
@@ -434,26 +443,31 @@ const startShapeDrawing = (pos: Point) => {
   // Create preview shape based on tool
   switch (activeTool.value) {
     case 'line':
+      const lineDash = strokeStyle.value === 'dashed' ? [10, 5] : strokeStyle.value === 'dotted' ? [2, 4] : undefined;
       drawingState.value.currentShape = new Konva.Line({
         points: [pos.x, pos.y, pos.x, pos.y],
         stroke: brushColor.value,
         strokeWidth: strokeWidth.value,
-        lineCap: 'round',
+        lineCap: lineCap.value,
+        dash: lineDash,
         name: 'temp-shape',
       });
       break;
     case 'arrow':
+      const arrowDash = strokeStyle.value === 'dashed' ? [10, 5] : strokeStyle.value === 'dotted' ? [2, 4] : undefined;
       drawingState.value.currentShape = new Konva.Arrow({
         points: [pos.x, pos.y, pos.x, pos.y],
         stroke: brushColor.value,
         strokeWidth: strokeWidth.value,
         fill: brushColor.value,
+        dash: arrowDash,
         pointerLength: 10,
         pointerWidth: 10,
         name: 'temp-shape',
       });
       break;
     case 'rectangle':
+      const rectDash = strokeStyle.value === 'dashed' ? [10, 5] : strokeStyle.value === 'dotted' ? [2, 4] : undefined;
       drawingState.value.currentShape = new Konva.Rect({
         x: pos.x,
         y: pos.y,
@@ -462,6 +476,7 @@ const startShapeDrawing = (pos: Point) => {
         stroke: brushColor.value,
         strokeWidth: strokeWidth.value,
         fill: 'transparent',
+        dash: rectDash,
         name: 'temp-shape',
       });
       break;
@@ -515,12 +530,18 @@ const endShapeDrawing = () => {
   }
 
   // Create final shape
+  const dashArray = strokeStyle.value === 'dashed' ? [10, 5] : strokeStyle.value === 'dotted' ? [2, 4] : undefined;
+  const shapeConfig = {
+    dash: dashArray,
+    lineCap: lineCap.value,
+  };
+  
   switch (activeTool.value) {
     case 'line':
-      drawLine(start, pos);
+      drawLine(start, pos, shapeConfig);
       break;
     case 'arrow':
-      drawArrow(start, pos);
+      drawArrow(start, pos, shapeConfig);
       break;
     case 'rectangle':
       const width = pos.x - start.x;
@@ -529,7 +550,8 @@ const endShapeDrawing = () => {
         width < 0 ? pos.x : start.x,
         height < 0 ? pos.y : start.y,
         Math.abs(width),
-        Math.abs(height)
+        Math.abs(height),
+        shapeConfig
       );
       break;
   }
@@ -579,6 +601,22 @@ const setTool = (tool: Tool) => {
   }
 };
 
+// Watch for selected nodes changes
+watch(selectedNodes, (nodes) => {
+  // Check if any selected node is text
+  hasTextSelected.value = nodes.some(node => node.className === 'Text');
+  
+  // Update properties based on selected nodes
+  if (nodes.length === 1) {
+    const node = nodes[0];
+    if (node.className === 'Text') {
+      currentFontFamily.value = node.fontFamily?.() || 'Arial';
+      currentFontSize.value = node.fontSize?.() || 20;
+    }
+    currentOpacity.value = node.opacity?.() || 1;
+  }
+});
+
 // Watch for brush config changes and apply to selected objects
 watch(brushColor, (color) => {
   setBrushColor(color);
@@ -592,6 +630,72 @@ watch(brushColor, (color) => {
         node.stroke(color);
       } else if (node.className === 'Text') {
         node.fill(color);
+      }
+    });
+    mainLayer.value?.batchDraw();
+  }
+});
+
+watch(fillColor, (color) => {
+  setFillColor(color || 'transparent');
+  
+  // Apply to selected objects
+  if (selectedNodes.value.length > 0) {
+    selectedNodes.value.forEach((node) => {
+      if (node.className === 'Rect' || node.className === 'Circle') {
+        node.fill(color || 'transparent');
+      }
+    });
+    mainLayer.value?.batchDraw();
+  }
+});
+
+watch(currentOpacity, (opacity) => {
+  setOpacity(opacity);
+  
+  // Apply to selected objects
+  if (selectedNodes.value.length > 0) {
+    selectedNodes.value.forEach((node) => {
+      node.opacity(opacity);
+    });
+    mainLayer.value?.batchDraw();
+  }
+});
+
+watch(strokeStyle, (style) => {
+  setStrokeStyle(style);
+  
+  // Apply to selected objects
+  if (selectedNodes.value.length > 0) {
+    let dashArray: number[] | undefined;
+    switch (style) {
+      case 'dashed':
+        dashArray = [10, 5];
+        break;
+      case 'dotted':
+        dashArray = [2, 4];
+        break;
+      default:
+        dashArray = undefined;
+    }
+    
+    selectedNodes.value.forEach((node) => {
+      if (node.dash) {
+        node.dash(dashArray);
+      }
+    });
+    mainLayer.value?.batchDraw();
+  }
+});
+
+watch(lineCap, (cap) => {
+  setLineCap(cap);
+  
+  // Apply to selected objects
+  if (selectedNodes.value.length > 0) {
+    selectedNodes.value.forEach((node) => {
+      if (node.lineCap) {
+        node.lineCap(cap);
       }
     });
     mainLayer.value?.batchDraw();
@@ -886,6 +990,7 @@ const handleStrokeWidthChange = (width: number) => {
 };
 
 const handleOpacityChange = (opacity: number) => {
+  currentOpacity.value = opacity;
   changeOpacity(opacity);
   saveState();
 };
@@ -958,6 +1063,30 @@ useKonvaKeyboard({
     if (json) {
       localStorage.setItem('canvas-save', json);
       alert('Canvas saved!');
+    }
+  },
+  // Tool shortcuts
+  onSelectTool: () => setTool('select'),
+  onPanTool: () => setTool('pan'),
+  onBrushTool: () => setTool('brush'),
+  onLineTool: () => setTool('line'),
+  onArrowTool: () => setTool('arrow'),
+  onRectangleTool: () => setTool('rectangle'),
+  onTextTool: () => setTool('text'),
+  onImageUpload: () => triggerImageUpload(),
+  // View shortcuts
+  onZoomIn: () => handleZoomIn(),
+  onZoomOut: () => handleZoomOut(),
+  onFitToScreen: () => handleCenterView(),
+  onExport: () => handleExport('png'),
+  // Text editing (moved from separate handler)
+  onEditText: () => {
+    if (selectedNodes.value.length === 1) {
+      const node = selectedNodes.value[0];
+      if (node.className === 'Text') {
+        console.log('Editing text via keyboard shortcut');
+        enableTextEditing(node as Konva.Text);
+      }
     }
   },
 });

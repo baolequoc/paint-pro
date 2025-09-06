@@ -13,6 +13,22 @@ interface KeyboardHandlers {
   onGroup?: () => void;
   onUngroup?: () => void;
   onEscape?: () => void;
+  // Tool shortcuts
+  onSelectTool?: () => void;
+  onPanTool?: () => void;
+  onBrushTool?: () => void;
+  onLineTool?: () => void;
+  onArrowTool?: () => void;
+  onRectangleTool?: () => void;
+  onTextTool?: () => void;
+  onImageUpload?: () => void;
+  // View shortcuts
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onFitToScreen?: () => void;
+  onExport?: () => void;
+  // Text editing
+  onEditText?: () => void;
 }
 
 export function useKonvaKeyboard(handlers: KeyboardHandlers) {
@@ -105,6 +121,75 @@ export function useKonvaKeyboard(handlers: KeyboardHandlers) {
       }
       e.preventDefault();
       handlers.onDelete?.();
+      return;
+    }
+    
+    // Tool shortcuts (no modifiers)
+    if (!isCtrlOrCmd && !e.shiftKey && !e.altKey) {
+      // Check if target is input/textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+      
+      switch(e.key.toLowerCase()) {
+        case 'v':
+          e.preventDefault();
+          handlers.onSelectTool?.();
+          return;
+        case 'h':
+          e.preventDefault();
+          handlers.onPanTool?.();
+          return;
+        case 'b':
+          e.preventDefault();
+          handlers.onBrushTool?.();
+          return;
+        case 'l':
+          e.preventDefault();
+          handlers.onLineTool?.();
+          return;
+        case 'a':
+          e.preventDefault();
+          handlers.onArrowTool?.();
+          return;
+        case 'r':
+          e.preventDefault();
+          handlers.onRectangleTool?.();
+          return;
+        case 't':
+          e.preventDefault();
+          handlers.onTextTool?.();
+          return;
+        case 'u':
+          e.preventDefault();
+          handlers.onImageUpload?.();
+          return;
+        case 'e':
+          e.preventDefault();
+          handlers.onEditText?.();
+          return;
+        case 'f':
+          e.preventDefault();
+          handlers.onFitToScreen?.();
+          return;
+        case '+':
+        case '=':
+          e.preventDefault();
+          handlers.onZoomIn?.();
+          return;
+        case '-':
+        case '_':
+          e.preventDefault();
+          handlers.onZoomOut?.();
+          return;
+      }
+    }
+    
+    // Export shortcut (Cmd/Ctrl + E)
+    if (isCtrlOrCmd && e.key === 'e') {
+      e.preventDefault();
+      handlers.onExport?.();
       return;
     }
   };
