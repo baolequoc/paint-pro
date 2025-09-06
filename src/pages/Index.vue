@@ -1,11 +1,11 @@
 <template>
   <div class="page">
-    <CanvasEditor />
+    <KonvaCanvasEditor />
   </div>
 </template>
 
 <script setup lang="ts">
-  import CanvasEditor from "@/components/CanvasEditor.vue";
+  import KonvaCanvasEditor from "@/components/KonvaCanvasEditor.vue";
 </script>
 
 <style scoped>
