@@ -154,6 +154,12 @@ export function useKonvaDrawing(
       draggable: false,
     });
 
+    // Add double-click listener directly to the text node
+    textNode.on('dblclick dbltap', () => {
+      console.log('Text node double-clicked directly');
+      enableTextEditing(textNode);
+    });
+
     mainLayer.value.add(textNode);
     mainLayer.value.batchDraw();
     return textNode;
@@ -161,79 +167,131 @@ export function useKonvaDrawing(
 
   // Edit text on double click
   const enableTextEditing = (textNode: Konva.Text) => {
-    const handleEdit = () => {
-      // Hide the original text while editing
-      textNode.hide();
-      mainLayer.value?.batchDraw();
-      
-      // Create textarea for editing
-      const textPosition = textNode.absolutePosition();
-      const stageBox = stage.value?.container().getBoundingClientRect();
-      const scale = stage.value?.scaleX() || 1;
-      
-      if (!stageBox) return;
+    console.log('enableTextEditing called for text:', textNode.text());
+    
+    if (!stage.value) return;
+    
+    // Get stage container and transformations
+    const container = stage.value.container();
+    const stageBox = container.getBoundingClientRect();
+    
+    // Get the absolute transform of the text node
+    const absTransform = textNode.getAbsoluteTransform();
+    const pos = absTransform.point({ x: 0, y: 0 });
+    
+    // Get stage transform
+    const stageScale = stage.value.scaleX() || 1;
+    const stagePos = stage.value.position();
+    
+    // Calculate the actual position on screen
+    const areaPosition = {
+      x: stageBox.left + pos.x * stageScale + stagePos.x,
+      y: stageBox.top + pos.y * stageScale + stagePos.y
+    };
+    
+    // Check if textarea already exists and remove it
+    const existingWrapper = document.getElementById('konva-text-editor-wrapper');
+    if (existingWrapper) {
+      existingWrapper.remove();
+    }
 
-      // Check if textarea already exists and remove it
-      const existingTextarea = document.getElementById('konva-text-editor');
-      if (existingTextarea) {
-        existingTextarea.remove();
-      }
+    // Create wrapper div for better positioning
+    const wrapper = document.createElement('div');
+    wrapper.id = 'konva-text-editor-wrapper';
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = `${areaPosition.x}px`;
+    wrapper.style.top = `${areaPosition.y}px`;
+    wrapper.style.zIndex = '10000';
+    wrapper.style.transform = `scale(${stageScale})`;
+    wrapper.style.transformOrigin = 'top left';
+    document.body.appendChild(wrapper);
 
-      const textarea = document.createElement('textarea');
-      textarea.id = 'konva-text-editor';
-      document.body.appendChild(textarea);
-
-      textarea.value = textNode.text();
-      textarea.style.position = 'absolute';
-      textarea.style.top = `${stageBox.top + textPosition.y * scale}px`;
-      textarea.style.left = `${stageBox.left + textPosition.x * scale}px`;
-      textarea.style.width = `${Math.max(100, textNode.width() * scale)}px`;
-      textarea.style.height = `${Math.max(30, textNode.height() * scale)}px`;
-      textarea.style.fontSize = `${textNode.fontSize() * scale}px`;
-      textarea.style.fontFamily = textNode.fontFamily();
-      textarea.style.color = String(textNode.fill() || '#000000');
-      textarea.style.border = '1px solid #007bff';
-      textarea.style.padding = '2px';
-      textarea.style.margin = '0px';
-      textarea.style.overflow = 'hidden';
-      textarea.style.background = 'white';
-      textarea.style.outline = 'none';
-      textarea.style.resize = 'none';
-      textarea.style.zIndex = '10000';
-      textarea.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-
+    // Create textarea
+    const textarea = document.createElement('textarea');
+    textarea.id = 'konva-text-editor';
+    textarea.value = textNode.text();
+    
+    // Style to match the text node
+    textarea.style.width = `${Math.max(200, textNode.width())}px`;
+    textarea.style.minHeight = `${Math.max(textNode.fontSize() * 1.5, 30)}px`;
+    textarea.style.fontSize = `${textNode.fontSize()}px`;
+    textarea.style.fontFamily = textNode.fontFamily();
+    textarea.style.fontWeight = 'normal'; // fontWeight is not a method in Konva.Text
+    textarea.style.lineHeight = String(textNode.lineHeight());
+    textarea.style.color = String(textNode.fill() || '#000000');
+    textarea.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+    textarea.style.border = '2px solid #0066ff';
+    textarea.style.borderRadius = '4px';
+    textarea.style.padding = '4px 6px';
+    textarea.style.margin = '0';
+    textarea.style.outline = 'none';
+    textarea.style.resize = 'both';
+    textarea.style.overflow = 'auto';
+    textarea.style.boxShadow = '0 2px 12px rgba(0,0,0,0.15)';
+    textarea.style.whiteSpace = 'pre-wrap';
+    textarea.style.overflowWrap = 'break-word'; // Use overflowWrap instead of deprecated wordWrap
+    
+    wrapper.appendChild(textarea);
+    
+    // Auto-resize textarea as user types
+    const autoResize = () => {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    };
+    
+    textarea.addEventListener('input', autoResize);
+    autoResize();
+    
+    // Hide the original text
+    textNode.hide();
+    mainLayer.value?.batchDraw();
+    
+    // Focus and select text
+    setTimeout(() => {
       textarea.focus();
       textarea.select();
+    }, 10);
 
-      const removeTextarea = () => {
-        if (textarea.parentNode) {
-          textarea.parentNode.removeChild(textarea);
-        }
-        textNode.show();
-        mainLayer.value?.batchDraw();
-      };
-
-      const saveText = () => {
-        textNode.text(textarea.value);
-        removeTextarea();
-      };
-
-      textarea.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          saveText();
-        }
-        if (e.key === 'Escape') {
-          removeTextarea();
-        }
-      });
-
-      textarea.addEventListener('blur', saveText);
+    const cleanup = () => {
+      if (wrapper.parentNode) {
+        wrapper.parentNode.removeChild(wrapper);
+      }
+      textNode.show();
+      mainLayer.value?.batchDraw();
     };
 
-    // Remove previous listeners to avoid duplicates
-    textNode.off('dblclick dbltap');
-    textNode.on('dblclick dbltap', handleEdit);
+    const saveText = () => {
+      const newText = textarea.value.trim();
+      if (newText) {
+        textNode.text(newText);
+        // Update text node size based on new content
+        textNode.width(undefined); // Auto-width
+        textNode.height(undefined); // Auto-height
+      }
+      cleanup();
+    };
+
+    // Handle keyboard events
+    textarea.addEventListener('keydown', (e) => {
+      // Save on Enter (allow Shift+Enter for new lines)
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        saveText();
+      }
+      // Cancel on Escape
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        cleanup();
+      }
+      // Stop propagation to prevent triggering canvas shortcuts
+      e.stopPropagation();
+    });
+
+    // Save on blur (clicking outside)
+    textarea.addEventListener('blur', () => {
+      // Small delay to prevent immediate blur when clicking
+      setTimeout(saveText, 100);
+    });
   };
 
   const setBrushColor = (color: string) => {

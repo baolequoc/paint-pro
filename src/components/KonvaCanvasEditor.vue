@@ -249,6 +249,28 @@ onMounted(() => {
       initHistory();
     }
   }, 100);
+  
+  // Add keyboard listener for text editing
+  const handleKeyPress = (e: KeyboardEvent) => {
+    // Press 'E' to edit selected text
+    if (e.key === 'e' || e.key === 'E') {
+      if (selectedNodes.value.length === 1) {
+        const node = selectedNodes.value[0];
+        if (node.className === 'Text') {
+          e.preventDefault();
+          console.log('Editing text via keyboard shortcut');
+          enableTextEditing(node as Konva.Text);
+        }
+      }
+    }
+  };
+  
+  window.addEventListener('keydown', handleKeyPress);
+  
+  // Cleanup on unmount
+  onUnmounted(() => {
+    window.removeEventListener('keydown', handleKeyPress);
+  });
 });
 
 // Setup event listeners
@@ -261,6 +283,11 @@ const setupEventListeners = () => {
   stage.value.on('click tap', handleClick);
   stage.value.on('dblclick dbltap', handleDoubleClick);
   stage.value.on('contextmenu', handleContextMenu);
+  
+  // Test if dblclick is working at all
+  stage.value.on('dblclick', () => {
+    console.log('Stage level double-click detected!');
+  });
   
   // Prevent direct dragging of elements - only allow through drag handles
   stage.value.on('dragstart', (e: Konva.KonvaEventObject<DragEvent>) => {
@@ -338,6 +365,7 @@ const handleMouseUp = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
 };
 
 const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  console.log('Single click detected on:', e.target.className);
   if (activeTool.value === 'select') {
     // Only update properties, selection is already handled in mousedown
     // Update brush color and stroke width based on selected object
@@ -357,10 +385,45 @@ const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
 };
 
 const handleDoubleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  console.log('Double click event triggered');
+  console.log('Target:', e.target);
+  console.log('Target className:', e.target.className);
+  console.log('Target constructor name:', e.target.constructor.name);
+  
   // Handle text editing on double click
-  if (e.target.className === 'Text') {
+  if (e.target.className === 'Text' || e.target.constructor.name === 'Text') {
+    console.log('Double-clicked on text, calling enableTextEditing');
     enableTextEditing(e.target as Konva.Text);
+  } else {
+    console.log('Not a text element, className:', e.target.className);
   }
+};
+
+// Manual text edit trigger (temporary workaround)
+const editSelectedText = () => {
+  if (selectedNodes.value.length === 1) {
+    const node = selectedNodes.value[0];
+    if (node.className === 'Text') {
+      console.log('Manually triggering text edit');
+      enableTextEditing(node as Konva.Text);
+    }
+  }
+};
+
+// Reattach double-click listeners to text nodes after undo/redo
+const reattachTextListeners = () => {
+  if (!mainLayer.value) return;
+  
+  const textNodes = mainLayer.value.find('.selectable').filter((node: any) => node.className === 'Text');
+  textNodes.forEach((textNode: any) => {
+    // Remove old listeners first
+    textNode.off('dblclick dbltap');
+    // Add new listener
+    textNode.on('dblclick dbltap', () => {
+      console.log('Text node double-clicked (reattached)');
+      enableTextEditing(textNode);
+    });
+  });
 };
 
 // Shape drawing handlers
@@ -481,11 +544,12 @@ const endShapeDrawing = () => {
 const handleTextTool = (pos: Point) => {
   const text = addText(pos.x, pos.y, 'Double-click to edit');
   if (text) {
-    enableTextEditing(text);
+    // Don't call enableTextEditing here - it will be handled by double-click
     saveState();
   }
   setTool('select');
 };
+
 
 // Tool management
 const setTool = (tool: Tool) => {
@@ -642,6 +706,8 @@ const handleUndo = () => {
     clearSelection();
     // Re-initialize transformer to ensure it works with the restored stage
     initTransformer();
+    // Reattach double-click listeners to text nodes
+    reattachTextListeners();
     // Ensure drawing tools still work
     if (tempLayer.value) {
       tempLayer.value.moveToTop();
@@ -661,6 +727,8 @@ const handleRedo = () => {
     clearSelection();
     // Re-initialize transformer to ensure it works with the restored stage
     initTransformer();
+    // Reattach double-click listeners to text nodes
+    reattachTextListeners();
     // Ensure drawing tools still work
     if (tempLayer.value) {
       tempLayer.value.moveToTop();
