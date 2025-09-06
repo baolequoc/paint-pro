@@ -20,7 +20,7 @@
     />
     
     <!-- Toolbar -->
-    <KonvaToolbar
+    <ModernToolbar
       :active-tool="activeTool"
       :brush-color="brushColor"
       :stroke-width="strokeWidth"
@@ -81,7 +81,7 @@ import { useKonvaKeyboard } from '@/composables/konva/useKonvaKeyboard';
 import { useKonvaActions } from '@/composables/konva/useKonvaActions';
 
 // Components
-import KonvaToolbar from './KonvaToolbar.vue';
+import ModernToolbar from './ModernToolbar.vue';
 import ContextMenu from './ContextMenu.vue';
 
 // Refs
@@ -976,15 +976,20 @@ onUnmounted(() => {
   height: 100vh;
   position: relative;
   overflow: hidden;
-  background: #f0f0f0;
+  background: #f8f9fa;
+  display: flex;
+  flex-direction: column;
 }
 
 .canvas-container {
   width: 100%;
-  height: 100%;
+  height: calc(100% - 56px); /* Account for toolbar height */
+  margin-top: 56px; /* Push down for fixed toolbar */
   position: relative;
   overflow: hidden;
-  background: white;
+  background: radial-gradient(circle, #ffffff 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-color: #fafbfc;
 }
 
 .hidden {

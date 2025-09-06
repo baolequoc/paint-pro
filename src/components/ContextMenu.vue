@@ -306,66 +306,78 @@ document.addEventListener('click', handleClickOutside);
 <style scoped>
 .context-menu {
   position: fixed;
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 8px 0;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  padding: 6px;
   z-index: 10000;
-  min-width: 220px;
-  font-size: 14px;
+  min-width: 240px;
+  font-size: 13px;
+  backdrop-filter: blur(20px);
 }
 
 .menu-section {
-  padding: 4px 0;
+  padding: 2px 0;
+  margin: 2px 0;
 }
 
 .menu-header {
-  padding: 4px 16px;
+  padding: 6px 12px 4px;
   font-weight: 600;
-  font-size: 12px;
-  color: #666;
+  font-size: 11px;
+  color: #6b7280;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
 }
 
 .menu-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  padding: 8px 16px;
+  width: calc(100% - 8px);
+  margin: 2px 4px;
+  padding: 8px 12px;
   background: none;
   border: none;
+  border-radius: 6px;
   text-align: left;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.15s;
+  font-weight: 500;
+  color: #1f2937;
 }
 
 .menu-item:hover:not(:disabled) {
-  background-color: #f0f0f0;
+  background-color: #f3f4f6;
+  color: #111827;
 }
 
 .menu-item:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .menu-item .icon {
-  margin-right: 8px;
-  font-size: 16px;
+  margin-right: 10px;
+  font-size: 14px;
+  color: #6b7280;
 }
 
 .menu-item .shortcut {
   margin-left: auto;
-  font-size: 12px;
-  color: #999;
+  font-size: 11px;
+  color: #9ca3af;
+  background: #f9fafb;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
 }
 
 .menu-divider {
   height: 1px;
-  background-color: #e0e0e0;
-  margin: 4px 0;
+  background-color: rgba(0, 0, 0, 0.06);
+  margin: 4px 8px;
 }
 
 .menu-row {
@@ -377,17 +389,20 @@ document.addEventListener('click', handleClickOutside);
 
 .menu-item-small {
   padding: 6px 10px;
-  background: none;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
 }
 
 .menu-item-small:hover {
-  background-color: #f0f0f0;
-  border-color: #999;
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .menu-item-inline {
@@ -403,11 +418,17 @@ document.addEventListener('click', handleClickOutside);
 }
 
 .color-input {
-  width: 40px;
-  height: 24px;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
   cursor: pointer;
+  transition: all 0.2s;
+}
+
+.color-input:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .slider-input {
