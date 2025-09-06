@@ -4,7 +4,8 @@ import type { KonvaStage, KonvaLayer, DrawingConfig, Point } from '@/types/konva
 
 export function useKonvaDrawing(
   stage: Ref<KonvaStage | null>,
-  mainLayer: Ref<KonvaLayer | null>
+  mainLayer: Ref<KonvaLayer | null>,
+  getPointerPosition?: () => { x: number; y: number } | null
 ) {
   const isDrawing = ref(false);
   const currentLine = ref<Konva.Line | null>(null);
@@ -17,7 +18,7 @@ export function useKonvaDrawing(
   const startBrushDrawing = () => {
     if (!stage.value || !mainLayer.value) return;
 
-    const pos = stage.value.getPointerPosition();
+    const pos = getPointerPosition ? getPointerPosition() : stage.value.getPointerPosition();
     if (!pos) return;
 
     isDrawing.value = true;
@@ -41,7 +42,7 @@ export function useKonvaDrawing(
   const continueBrushDrawing = () => {
     if (!isDrawing.value || !stage.value || !currentLine.value) return;
 
-    const pos = stage.value.getPointerPosition();
+    const pos = getPointerPosition ? getPointerPosition() : stage.value.getPointerPosition();
     if (!pos) return;
 
     const points = currentLine.value.points();

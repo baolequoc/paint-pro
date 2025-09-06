@@ -9,6 +9,10 @@ interface KeyboardHandlers {
   onPaste?: () => void;
   onCut?: () => void;
   onSave?: () => void;
+  onDuplicate?: () => void;
+  onGroup?: () => void;
+  onUngroup?: () => void;
+  onEscape?: () => void;
 }
 
 export function useKonvaKeyboard(handlers: KeyboardHandlers) {
@@ -61,6 +65,34 @@ export function useKonvaKeyboard(handlers: KeyboardHandlers) {
     if (isCtrlOrCmd && e.key === 's') {
       e.preventDefault();
       handlers.onSave?.();
+      return;
+    }
+    
+    // Duplicate
+    if (isCtrlOrCmd && e.key === 'd') {
+      e.preventDefault();
+      handlers.onDuplicate?.();
+      return;
+    }
+    
+    // Group
+    if (isCtrlOrCmd && e.key === 'g' && !e.shiftKey) {
+      e.preventDefault();
+      handlers.onGroup?.();
+      return;
+    }
+    
+    // Ungroup
+    if (isCtrlOrCmd && e.key === 'g' && e.shiftKey) {
+      e.preventDefault();
+      handlers.onUngroup?.();
+      return;
+    }
+    
+    // Escape
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      handlers.onEscape?.();
       return;
     }
     

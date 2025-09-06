@@ -65,17 +65,38 @@ export function useKonvaHistory(stage: Ref<KonvaStage | null>) {
   const restoreState = (json: string) => {
     if (!stage.value) return;
 
-    const container = stage.value.container();
-    const oldStage = stage.value;
+    // Parse the JSON
+    const stageData = JSON.parse(json);
     
-    // Clear and recreate
-    oldStage.destroy();
-    import('konva').then(({ default: Konva }) => {
-      const newStage = Konva.Node.create(json, container) as KonvaStage;
-      
-      // Update the stage ref (this needs to be handled by parent)
-      stage.value = newStage;
+    // Clear all layers but keep the stage intact
+    const layers = stage.value.getLayers();
+    layers.forEach((layer: any, index: number) => {
+      // Only clear the main layer (index 0) and temp layer (index 1)
+      // Keep transformer layer (index 2) intact
+      if (index < 2) {
+        layer.destroyChildren();
+      }
     });
+    
+    // Restore only the children of each layer
+    if (stageData.children) {
+      import('konva').then(({ default: Konva }) => {
+        stageData.children.forEach((layerData: any, index: number) => {
+          const layer = layers[index];
+          if (layer && layerData.children) {
+            layerData.children.forEach((childData: any) => {
+              const child = Konva.Node.create(childData);
+              layer.add(child);
+            });
+          }
+        });
+        
+        // Redraw all layers
+        layers.forEach((layer: any) => {
+          layer.batchDraw();
+        });
+      });
+    }
   };
 
   // Check if can undo

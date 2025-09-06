@@ -63,12 +63,26 @@ export function useKonvaStage(containerRef: Ref<HTMLDivElement | null>) {
   const clearStage = () => {
     if (!mainLayer.value) return;
     
+    // Clear main layer
     mainLayer.value.destroyChildren();
     mainLayer.value.draw();
     
+    // Clear temporary layer
     if (tempLayer.value) {
       tempLayer.value.destroyChildren();
       tempLayer.value.draw();
+    }
+    
+    // Clear transformer layer (except the transformer itself)
+    if (transformerLayer.value) {
+      const children = transformerLayer.value.getChildren();
+      children.forEach((child: any) => {
+        // Keep the transformer, destroy everything else (like drag handles)
+        if (child.className !== 'Transformer') {
+          child.destroy();
+        }
+      });
+      transformerLayer.value.draw();
     }
   };
 
@@ -103,11 +117,21 @@ export function useKonvaStage(containerRef: Ref<HTMLDivElement | null>) {
 
   const getPointerPosition = () => {
     if (!stage.value) return null;
-    const transform = stage.value.getAbsoluteTransform().copy();
-    transform.invert();
+    
+    // Get the pointer position relative to the stage container
     const pos = stage.value.getPointerPosition();
     if (!pos) return null;
-    return transform.point(pos);
+    
+    // Get the transform matrix of the stage
+    const transform = stage.value.getAbsoluteTransform().copy();
+    
+    // Invert the transform to convert from screen to stage coordinates
+    transform.invert();
+    
+    // Apply the inverted transform to get the real position on the canvas
+    const transformedPos = transform.point(pos);
+    
+    return transformedPos;
   };
 
   const batchDraw = () => {

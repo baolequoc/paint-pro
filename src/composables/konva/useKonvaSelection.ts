@@ -55,6 +55,46 @@ export function useKonvaSelection(
     transformer.value = tr;
   };
 
+  // Helper function to get selection bounding box in stage coordinates
+  const getSelectionBox = () => {
+    if (!transformer.value || selectedNodes.value.length === 0) return null;
+    
+    // Calculate bounding box from selected nodes
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    
+    selectedNodes.value.forEach(node => {
+      // Get the bounding box in absolute (screen) coordinates
+      const box = node.getClientRect();
+      minX = Math.min(minX, box.x);
+      minY = Math.min(minY, box.y);
+      maxX = Math.max(maxX, box.x + box.width);
+      maxY = Math.max(maxY, box.y + box.height);
+    });
+    
+    // Now we need to convert from screen coordinates to layer coordinates
+    // The drag handles are added to transformerLayer which might be transformed
+    const stage = transformer.value.getStage();
+    if (!stage) return null;
+    
+    // Get the stage's transform and invert it
+    const stageTransform = stage.getAbsoluteTransform().copy();
+    stageTransform.invert();
+    
+    // Convert the corners to stage coordinates
+    const topLeft = stageTransform.point({ x: minX, y: minY });
+    const bottomRight = stageTransform.point({ x: maxX, y: maxY });
+    
+    return {
+      x: topLeft.x,
+      y: topLeft.y,
+      width: bottomRight.x - topLeft.x,
+      height: bottomRight.y - topLeft.y
+    };
+  };
+
   const updateDragHandle = () => {
     if (!transformerLayer.value || !transformer.value) return;
 
@@ -69,7 +109,7 @@ export function useKonvaSelection(
     }
 
     // Get the bounding box of selected elements
-    const box = transformer.value.getClientRect();
+    const box = getSelectionBox();
     
     // Don't create handle if box is invalid
     if (!box || box.width === 0 || box.height === 0) {
@@ -120,6 +160,7 @@ export function useKonvaSelection(
     const createHandle = (position: 'top' | 'bottom' | 'left' | 'right') => {
       let x = 0, y = 0, width = 80, height = 24;
       
+      // Box is already in stage coordinates, so we can use it directly
       switch(position) {
         case 'top':
           x = box.x + box.width / 2;
@@ -198,9 +239,11 @@ export function useKonvaSelection(
     // Create handles for all four sides
     const handles: any[] = [];
     ['top', 'bottom', 'left', 'right'].forEach((position) => {
-      const { handle, handleBg } = createHandle(position as any);
-      handles.push({ handle, handleBg, position });
-      handleGroup.add(handle);
+      const result = createHandle(position as any);
+      if (result.handle) {
+        handles.push({ handle: result.handle, handleBg: result.handleBg, position });
+        handleGroup.add(result.handle);
+      }
     });
 
     // Track initial positions for dragging
@@ -255,7 +298,7 @@ export function useKonvaSelection(
         }
 
         // Update all handles positions to match new selection position
-        const newBox = transformer.value?.getClientRect();
+        const newBox = getSelectionBox();
         if (newBox) {
           handles.forEach(({ handle: h, position: p }) => {
             if (h !== handle) { // Don't update the handle being dragged
@@ -287,7 +330,7 @@ export function useKonvaSelection(
 
       handle.on('dragend', () => {
         // Update handle position to match new selection position
-        const newBox = transformer.value?.getClientRect();
+        const newBox = getSelectionBox();
         if (newBox) {
           switch(position) {
             case 'top':
@@ -373,16 +416,29 @@ export function useKonvaSelection(
   const clearSelection = () => {
     // Remove highlight from all selected nodes
     selectedNodes.value.forEach(node => {
-      if ('shadowColor' in node && typeof node.shadowColor === 'function') {
-        node.shadowColor('');
-        if ('shadowBlur' in node && typeof node.shadowBlur === 'function') {
-          node.shadowBlur(0);
+      // Check if node still exists (might have been destroyed by undo)
+      try {
+        // Try to access a property to check if node is still valid
+        if (node && node.getParent()) {
+          if ('shadowColor' in node && typeof node.shadowColor === 'function') {
+            node.shadowColor('');
+            if ('shadowBlur' in node && typeof node.shadowBlur === 'function') {
+              node.shadowBlur(0);
+            }
+            if ('shadowOffset' in node && typeof node.shadowOffset === 'function') {
+              node.shadowOffset({ x: 0, y: 0 });
+            }
+          }
         }
-        if ('shadowOffset' in node && typeof node.shadowOffset === 'function') {
-          node.shadowOffset({ x: 0, y: 0 });
-        }
+      } catch (e) {
+        // Node has been destroyed, skip it
       }
     });
+    
+    // Hide selection rectangle if it exists
+    if (selectionRectangle.value) {
+      selectionRectangle.value.visible(false);
+    }
     
     // Remove drag handle
     if (dragHandle.value) {
@@ -390,9 +446,13 @@ export function useKonvaSelection(
       dragHandle.value = null;
     }
     
+    // Clear selection array
     selectedNodes.value = [];
+    
+    // Clear transformer nodes
     if (transformer.value) {
       transformer.value.nodes([]);
+      transformer.value.detach();
       transformerLayer.value?.batchDraw();
     }
     
@@ -411,8 +471,9 @@ export function useKonvaSelection(
     startPos.value = { x: pos.x, y: pos.y };
     isSelecting.value = true;
 
-    // Create selection rectangle
-    if (!selectionRectangle.value) {
+    // Create selection rectangle or check if it still exists
+    if (!selectionRectangle.value || !selectionRectangle.value.getParent()) {
+      // Rectangle was destroyed, recreate it
       selectionRectangle.value = new Konva.Rect({
         x: pos.x,
         y: pos.y,
@@ -423,8 +484,15 @@ export function useKonvaSelection(
         strokeWidth: 1,
         dash: [5, 5],
         visible: false, // Start hidden
+        name: 'selection-rect', // Give it a name so we don't save it in history
       });
-      mainLayer.value.add(selectionRectangle.value);
+      // Add to transformer layer instead of main layer so it doesn't get cleared
+      if (transformerLayer.value) {
+        transformerLayer.value.add(selectionRectangle.value);
+        selectionRectangle.value.moveToBottom(); // Keep it below transformer
+      } else {
+        mainLayer.value.add(selectionRectangle.value);
+      }
     } else {
       selectionRectangle.value.setAttrs({
         x: pos.x,

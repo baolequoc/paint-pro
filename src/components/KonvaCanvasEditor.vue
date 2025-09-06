@@ -1,5 +1,24 @@
 <template>
   <div class="canvas-editor">
+    <!-- Context Menu -->
+    <ContextMenu
+      v-if="contextMenuVisible"
+      :visible="contextMenuVisible"
+      :position="contextMenuPosition"
+      :selected-count="selectedNodes.length"
+      :has-group="hasGroupSelected"
+      :can-paste="canPaste"
+      :fill-color="currentFillColor"
+      :stroke-color="currentStrokeColor"
+      :stroke-width="currentStrokeWidth"
+      :opacity="currentOpacity"
+      @action="handleContextMenuAction"
+      @color-change="handleColorChange"
+      @stroke-width-change="handleStrokeWidthChange"
+      @opacity-change="handleOpacityChange"
+      @close="closeContextMenu"
+    />
+    
     <!-- Toolbar -->
     <KonvaToolbar
       :active-tool="activeTool"
@@ -59,9 +78,11 @@ import { useKonvaExport } from '@/composables/konva/useKonvaExport';
 import { useKonvaHistory } from '@/composables/konva/useKonvaHistory';
 import { useKonvaZoom } from '@/composables/konva/useKonvaZoom';
 import { useKonvaKeyboard } from '@/composables/konva/useKonvaKeyboard';
+import { useKonvaActions } from '@/composables/konva/useKonvaActions';
 
 // Components
 import KonvaToolbar from './KonvaToolbar.vue';
+import ContextMenu from './ContextMenu.vue';
 
 // Refs
 const containerRef = ref<HTMLDivElement | null>(null);
@@ -71,6 +92,16 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 const activeTool = ref<Tool>('select');
 const brushColor = ref('#000000');
 const strokeWidth = ref(2);
+
+// Context menu state
+const contextMenuVisible = ref(false);
+const contextMenuPosition = ref({ x: 0, y: 0 });
+const canPaste = ref(false);
+const hasGroupSelected = ref(false);
+const currentFillColor = ref('#000000');
+const currentStrokeColor = ref('#000000');
+const currentStrokeWidth = ref(2);
+const currentOpacity = ref(1);
 
 // Stage setup
 const {
@@ -118,7 +149,7 @@ const {
   enableTextEditing,
   setBrushColor,
   setBrushSize,
-} = useKonvaDrawing(stage, mainLayer);
+} = useKonvaDrawing(stage, mainLayer, getPointerPosition);
 
 // Images
 const {
@@ -167,6 +198,33 @@ const {
   fitToScreen,
 } = useKonvaZoom(stage);
 
+// Actions
+const {
+  bringToFront,
+  sendToBack,
+  bringForward,
+  sendBackward,
+  changeColor,
+  changeStrokeWidth,
+  changeOpacity,
+  copySelected,
+  cutSelected,
+  paste,
+  deleteSelected: deleteFromActions,
+  duplicateSelected,
+  flipHorizontal,
+  flipVertical,
+  rotate,
+  groupSelected,
+  ungroupSelected,
+  alignLeft,
+  alignRight,
+  alignTop,
+  alignBottom,
+  alignCenterHorizontal,
+  alignCenterVertical,
+} = useKonvaActions(stage, mainLayer, selectedNodes);
+
 // Drawing state for shapes
 const drawingState = ref<{
   isDrawing: boolean;
@@ -202,6 +260,7 @@ const setupEventListeners = () => {
   stage.value.on('mouseup touchend', handleMouseUp);
   stage.value.on('click tap', handleClick);
   stage.value.on('dblclick dbltap', handleDoubleClick);
+  stage.value.on('contextmenu', handleContextMenu);
   
   // Prevent direct dragging of elements - only allow through drag handles
   stage.value.on('dragstart', (e: Konva.KonvaEventObject<DragEvent>) => {
@@ -430,6 +489,11 @@ const handleTextTool = (pos: Point) => {
 
 // Tool management
 const setTool = (tool: Tool) => {
+  // Clear selection when changing from select tool to another tool
+  if (activeTool.value === 'select' && tool !== 'select') {
+    clearSelection();
+  }
+  
   activeTool.value = tool;
   
   // Clear any ongoing operations
@@ -549,7 +613,17 @@ const handleExport = async (type: 'png' | 'jpeg' | 'clipboard') => {
 // Canvas operations
 const clearCanvas = () => {
   if (confirm('Are you sure you want to clear the canvas?')) {
+    // Clear selection first
+    clearSelection();
+    // Clear the stage
     clearStage();
+    // Reset any drawing state
+    drawingState.value = {
+      isDrawing: false,
+      startPoint: null,
+      currentShape: null,
+    };
+    // Save the empty state
     saveState();
   }
 };
@@ -560,11 +634,41 @@ const centerView = () => {
 
 // History operations
 const handleUndo = () => {
+  // Clear selection before undo to avoid orphaned selections
+  clearSelection();
   undo();
+  // Re-initialize transformer after undo
+  setTimeout(() => {
+    clearSelection();
+    // Re-initialize transformer to ensure it works with the restored stage
+    initTransformer();
+    // Ensure drawing tools still work
+    if (tempLayer.value) {
+      tempLayer.value.moveToTop();
+    }
+    if (transformerLayer.value) {
+      transformerLayer.value.moveToTop();
+    }
+  }, 100);
 };
 
 const handleRedo = () => {
+  // Clear selection before redo to avoid orphaned selections
+  clearSelection();
   redo();
+  // Re-initialize transformer after redo
+  setTimeout(() => {
+    clearSelection();
+    // Re-initialize transformer to ensure it works with the restored stage
+    initTransformer();
+    // Ensure drawing tools still work
+    if (tempLayer.value) {
+      tempLayer.value.moveToTop();
+    }
+    if (transformerLayer.value) {
+      transformerLayer.value.moveToTop();
+    }
+  }, 100);
 };
 
 // Zoom operations
@@ -580,26 +684,205 @@ const handleResetZoom = () => {
   resetZoom();
 };
 
+// Context Menu handlers
+const handleContextMenu = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  e.evt.preventDefault();
+  
+  // Only show context menu if there are selected elements
+  if (selectedNodes.value.length > 0) {
+    const container = containerRef.value;
+    if (!container) return;
+    
+    const rect = container.getBoundingClientRect();
+    contextMenuPosition.value = {
+      x: e.evt.clientX,
+      y: e.evt.clientY
+    };
+    
+    // Update current properties from selected nodes
+    if (selectedNodes.value.length === 1) {
+      const node = selectedNodes.value[0];
+      currentStrokeColor.value = (node.stroke && node.stroke()) || '#000000';
+      currentFillColor.value = (node.fill && node.fill()) || '#000000';
+      currentStrokeWidth.value = (node.strokeWidth && node.strokeWidth()) || 2;
+      currentOpacity.value = node.opacity() || 1;
+    }
+    
+    // Check if any selected node is a group
+    hasGroupSelected.value = selectedNodes.value.some(node => node.className === 'Group');
+    
+    contextMenuVisible.value = true;
+  }
+};
+
+const closeContextMenu = () => {
+  contextMenuVisible.value = false;
+};
+
+const handleContextMenuAction = (action: string) => {
+  switch (action) {
+    case 'bringToFront':
+      bringToFront();
+      break;
+    case 'sendToBack':
+      sendToBack();
+      break;
+    case 'bringForward':
+      bringForward();
+      break;
+    case 'sendBackward':
+      sendBackward();
+      break;
+    case 'cut':
+      cutSelected();
+      canPaste.value = true;
+      break;
+    case 'copy':
+      copySelected();
+      canPaste.value = true;
+      break;
+    case 'paste':
+      const pastedNodes = paste();
+      if (pastedNodes) {
+        selectNodes(pastedNodes);
+      }
+      break;
+    case 'duplicate':
+      const duplicated = duplicateSelected();
+      if (duplicated) {
+        selectNodes(duplicated);
+      }
+      break;
+    case 'delete':
+      deleteFromActions();
+      clearSelection();
+      break;
+    case 'flipHorizontal':
+      flipHorizontal();
+      break;
+    case 'flipVertical':
+      flipVertical();
+      break;
+    case 'rotate90':
+      rotate(90);
+      break;
+    case 'rotate-90':
+      rotate(-90);
+      break;
+    case 'group':
+      const group = groupSelected();
+      if (group) {
+        selectNodes([group]);
+      }
+      break;
+    case 'ungroup':
+      const ungrouped = ungroupSelected();
+      if (ungrouped) {
+        selectNodes(ungrouped);
+      }
+      break;
+    case 'alignLeft':
+      alignLeft();
+      break;
+    case 'alignRight':
+      alignRight();
+      break;
+    case 'alignTop':
+      alignTop();
+      break;
+    case 'alignBottom':
+      alignBottom();
+      break;
+    case 'alignCenterH':
+      alignCenterHorizontal();
+      break;
+    case 'alignCenterV':
+      alignCenterVertical();
+      break;
+  }
+  saveState();
+};
+
+const handleColorChange = (type: 'fill' | 'stroke', color: string) => {
+  changeColor(color, type);
+  if (type === 'stroke') {
+    brushColor.value = color;
+  }
+  saveState();
+};
+
+const handleStrokeWidthChange = (width: number) => {
+  changeStrokeWidth(width);
+  strokeWidth.value = width;
+  saveState();
+};
+
+const handleOpacityChange = (opacity: number) => {
+  changeOpacity(opacity);
+  saveState();
+};
+
 // Keyboard shortcuts
 useKonvaKeyboard({
   onUndo: handleUndo,
   onRedo: handleRedo,
   onSelectAll: selectAll,
   onDelete: () => {
-    deleteSelected();
-    saveState();
+    if (selectedNodes.value.length > 0) {
+      deleteSelected();
+      saveState();
+    }
   },
   onCopy: () => {
-    // TODO: Implement copy
-    console.log('Copy selected');
+    if (selectedNodes.value.length > 0) {
+      copySelected();
+      canPaste.value = true;
+    }
   },
   onPaste: () => {
-    // TODO: Implement paste
-    console.log('Paste');
+    const pastedNodes = paste();
+    if (pastedNodes) {
+      selectNodes(pastedNodes);
+      saveState();
+    }
   },
   onCut: () => {
-    // TODO: Implement cut
-    console.log('Cut selected');
+    if (selectedNodes.value.length > 0) {
+      cutSelected();
+      canPaste.value = true;
+      saveState();
+    }
+  },
+  onDuplicate: () => {
+    if (selectedNodes.value.length > 0) {
+      const duplicated = duplicateSelected();
+      if (duplicated) {
+        selectNodes(duplicated);
+        saveState();
+      }
+    }
+  },
+  onGroup: () => {
+    if (selectedNodes.value.length > 1) {
+      const group = groupSelected();
+      if (group) {
+        selectNodes([group]);
+        saveState();
+      }
+    }
+  },
+  onUngroup: () => {
+    if (selectedNodes.value.some(node => node.className === 'Group')) {
+      const ungrouped = ungroupSelected();
+      if (ungrouped) {
+        selectNodes(ungrouped);
+        saveState();
+      }
+    }
+  },
+  onEscape: () => {
+    clearSelection();
+    closeContextMenu();
   },
   onSave: () => {
     // Save to JSON
